@@ -2,7 +2,15 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// Sicherheit: JWT_SECRET muss gesetzt sein
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ FEHLER: JWT_SECRET Umgebungsvariable ist nicht gesetzt!');
+  console.error('   Bitte setzen Sie JWT_SECRET in der .env Datei oder als Umgebungsvariable.');
+  console.error('   Beispiel: JWT_SECRET=ihr-geheimer-schlüssel-mindestens-32-zeichen-lang');
+  process.exit(1);
+}
+
 const JWT_EXPIRES_IN = '24h';
 const REFRESH_TOKEN_EXPIRES_IN = '7d';
 

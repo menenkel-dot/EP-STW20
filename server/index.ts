@@ -105,9 +105,14 @@ app.post('/api/auth/refresh', async (req: Request, res: Response) => {
   }
 });
 
-// Register (nur für Entwicklung/Testing - in Produktion sollte dies admin-only sein)
-app.post('/api/auth/register', async (req: Request, res: Response) => {
+// Register (nur für Entwicklung - in Produktion deaktiviert)
+app.post('/api/auth/register', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
+    // Nur Admins dürfen neue Benutzer erstellen
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren dürfen Benutzer erstellen' });
+    }
+
     const { username, password, name, email, role } = req.body;
 
     if (!username || !password || !name) {
@@ -130,18 +135,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       avatarUrl: null
     });
 
-    const tokenPayload = {
-      userId: user.id,
-      username: user.username,
-      role: user.role
-    };
-
-    const token = generateToken(tokenPayload);
-    const refreshToken = generateRefreshToken(tokenPayload);
-
     res.status(201).json({
-      token,
-      refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -238,7 +232,22 @@ app.get('/api/documents', authenticateToken, async (req: AuthRequest, res: Respo
 // Get absences for a child
 app.get('/api/absences/:childId', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
     const childId = parseInt(req.params.childId);
+    
+    // Sicherheit: Prüfe ob das Kind zum authentifizierten Benutzer gehört
+    const child = await storage.getChild(childId);
+    if (!child) {
+      return res.status(404).json({ error: 'Kind nicht gefunden' });
+    }
+
+    if (child.parentId !== req.user.userId) {
+      return res.status(403).json({ error: 'Zugriff verweigert: Dieses Kind gehört nicht zu Ihrem Konto' });
+    }
+
     const absences = await storage.getAbsencesByChildId(childId);
     res.json(absences);
   } catch (error) {
