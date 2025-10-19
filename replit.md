@@ -2,275 +2,58 @@
 
 ## Overview
 
-This is a production-ready parent portal web application for Kinderhaus St. Wolfgang, a German childcare center. The application provides a secure, centralized platform for parents to access information about their children, view documents, manage absences, check events, and communicate with staff.
+This project is a production-ready parent portal web application for Kinderhaus St. Wolfgang, a German childcare center. It provides a secure, centralized platform for parents to access information about their children, view documents, manage absences, check events, and communicate with staff. The application is designed to be a comprehensive digital interface, enhancing communication and administrative efficiency for the childcare center.
 
-**Current Status:** Production-ready with full-stack authentication, PostgreSQL database, and secure JWT-based auth system.
+## User Preferences
 
-**Tech Stack:**
-- **Frontend:** React 19.2.0 + TypeScript + Vite 6.2.0 + Tailwind CSS (CDN)
-- **Backend:** Node.js + Express.js + TypeScript
-- **Database:** PostgreSQL (Neon-backed via Replit)
-- **Authentication:** JWT tokens + bcrypt password hashing
-- **ORM:** Drizzle ORM
+- I prefer simple language.
+- I want an iterative development approach.
+- Ask before making major changes.
+- I prefer detailed explanations for complex implementations.
+- Do not make changes to the folder `node_modules`.
+- Do not modify the `package-lock.json` file.
+- Ensure all new features are thoroughly tested before integration.
 
-## Recent Changes
+## System Architecture
 
-### October 19, 2025 - Benutzerverwaltung mit Datenbankintegration
+The application features a dual-server architecture with a React-based frontend and a Node.js/Express.js backend, communicating via RESTful APIs.
 
-**Benutzerverwaltung Fix:**
-- Benutzerverwaltung lädt jetzt alle Benutzer aus der PostgreSQL-Datenbank
-- Neue Benutzer werden über `/api/auth/register` Backend-API erstellt
-- Neue Benutzer werden dauerhaft in der Datenbank gespeichert
-- Neue Benutzer können sich sofort nach der Erstellung anmelden
-- Hinzugefügt: `/api/users` Endpoint (nur für Admins) zum Abrufen aller Benutzer
-- Hinzugefügt: `usersAPI.getAll()` Funktion im API-Client
-- Verbessert: Loading-States und Fehlerbehandlung in der Verwaltung-Komponente
-- Behoben: Datenbanksequenz-Problem für Auto-Increment IDs
+### UI/UX Decisions
+The frontend is built with React and TypeScript, styled using Tailwind CSS for a modern and responsive user interface. Key UI components include a dashboard, navigation sidebar, and distinct views for events, posts, absences, and messaging.
 
-### October 19, 2025 - Production-Ready Full-Stack Implementation
+### Technical Implementations
+- **Frontend:** React 19.2.0, TypeScript, Vite 6.2.0, Tailwind CSS (CDN). Utilizes Axios for API communication with JWT interceptors, and a custom `useAuth` hook for authentication context.
+- **Backend:** Node.js, Express.js, TypeScript. Implements a RESTful API with middleware for authentication and role-based authorization.
+- **Authentication:** Secure JWT-based authentication with `bcrypt` for password hashing and refresh tokens for persistent login. Registration is admin-only.
+- **Database:** PostgreSQL, managed with Drizzle ORM. The schema includes tables for users, children, groups, events, posts, holiday periods, bookings, conversations, messages, contacts, and documents.
+- **State Management:** Data is loaded from the backend, replacing all mock data. Components manage their loading states and error handling.
+- **Proxy Configuration:** Vite is configured to proxy `/api` requests to the backend server.
 
-**Security & Authentication:**
-- Implemented secure JWT-based authentication with bcrypt password hashing
-- Added mandatory JWT_SECRET environment variable (server refuses to start without it)
-- Restricted `/api/auth/register` endpoint to admin-only access
-- Added child ownership validation to `/api/absences/:childId` endpoint
-- All protected routes require authentication tokens
+### Feature Specifications
+1.  **Secure Authentication System:** JWT tokens with bcrypt hashing, refresh tokens, and role-based access control (Admin/Parent).
+2.  **Multi-child Support:** Parents can manage data for multiple children.
+3.  **Dashboard:** Provides an overview of upcoming events and important posts.
+4.  **Document Management:** Allows access to relevant forms and documents.
+5.  **Absence Reporting:** Parents can submit and manage absence notifications.
+6.  **Event Calendar:** Displays upcoming events and activities.
+7.  **Messages:** Enables secure parent-teacher communication with conversation threads.
+8.  **Notifications:** Bell icon with unread notification count.
+9.  **Role-based Access Control:** Differentiates permissions between Admin and Parent roles, with granular control over data access (e.g., child ownership validation for parents).
 
-**Backend Implementation:**
-- Created Express.js backend server on port 3000
-- Implemented RESTful API with authentication middleware
-- Database schema with users, children, groups, documents, and absences tables
-- Migrated all mock data to PostgreSQL database
-- Added proper error handling and input validation
+### System Design Choices
+- **Full-Stack Integration:** All frontend components are fully integrated with the backend APIs, removing all mock data dependencies.
+- **Database-driven:** All dynamic content and user data are persisted in the PostgreSQL database.
+- **Scalability:** Designed for Replit autoscale deployment with stateless web application principles.
+- **Security:** Emphasizes strong password hashing, JWT security, child ownership validation, and admin-only user registration.
 
-**Frontend Integration:**
-- Created Axios API client with automatic token refresh
-- Updated Login component to use backend authentication
-- Added loading states and error handling
-- Implemented persistent login (localStorage + token refresh)
-- Configured Vite proxy to route `/api` requests to backend
+## External Dependencies
 
-**Infrastructure:**
-- Dual-server architecture: Frontend (port 5000) + Backend (port 3000)
-- Vite proxy configuration for seamless API routing
-- Both workflows configured and running
-- Ready for Replit autoscale deployment
-
-### Initial Replit Environment Setup
-- Configured project to run in Replit environment
-- Updated Vite dev server to use port 5000 (required for Replit)
-- Added `allowedHosts: true` to Vite config to support Replit's proxy domains
-- Removed security vulnerabilities from codebase
-
-## Project Architecture
-
-### Application Structure
-
-```
-/
-├── lib/                 # Frontend library (API client)
-│   └── client.ts       # Axios client with JWT interceptors
-├── components/          # React components
-│   ├── Layout.tsx      # Main layout wrapper
-│   ├── Login.tsx       # Authentication screen
-│   ├── Dashboard.tsx   # Main dashboard
-│   ├── Sidebar.tsx     # Navigation sidebar
-│   ├── Header.tsx      # Top header with notifications
-│   └── [Feature components...]
-├── hooks/
-│   └── useAuth.tsx     # Authentication context and hook
-├── server/             # Backend server
-│   ├── index.ts        # Express server & API routes
-│   ├── auth.ts         # JWT & bcrypt authentication logic
-│   └── storage.ts      # Database access layer
-├── shared/
-│   └── schema.ts       # Drizzle ORM database schema
-├── App.tsx             # Root application component
-├── constants.ts        # Mock data (migrated to DB)
-├── types.ts            # TypeScript type definitions
-└── vite.config.ts      # Vite configuration with proxy
-```
-
-### Key Features
-
-1. **Secure Authentication System**: JWT tokens with bcrypt password hashing
-2. **Multi-child Support**: Parents can switch between multiple children
-3. **Dashboard**: Overview of upcoming events and important information
-4. **Document Management**: Access to forms and documents
-5. **Absence Reporting**: Submit absence notifications
-6. **Event Calendar**: View upcoming events and activities
-7. **Messages**: Parent-teacher communication
-8. **Notifications**: Bell icon with unread notification count
-9. **Role-based Access Control**: Admin and parent roles with different permissions
-
-### Test Users
-
-The database is pre-populated with test users:
-
-**Parents:**
-- Username: `meier` | Password: `password` (has 2 children: Anna & Max)
-- Username: `huber` | Password: `password` (has 1 child: Sophie)
-
-**Admin:**
-- Username: `admin` | Password: `password` (staff access)
-
-## Development
-
-### Prerequisites
-
-**Required Environment Variables:**
-- `JWT_SECRET` - Secret key for JWT token signing (min 32 characters)
-- `DATABASE_URL` - PostgreSQL connection string (auto-provided by Replit)
-
-### Running Locally
-
-Two workflows run simultaneously:
-
-**Frontend (Port 5000):**
-```bash
-npm run dev
-```
-
-**Backend (Port 3000):**
-```bash
-npm run server
-```
-
-Both are configured as Replit workflows and start automatically.
-
-### Database Management
-
-**Push schema changes:**
-```bash
-npm run db:push
-```
-
-**Open database studio:**
-```bash
-npm run db:studio
-```
-
-### Building for Production
-
-```bash
-npm run build
-```
-
-This creates an optimized production build in the `dist/` directory.
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - Login with username/password
-- `POST /api/auth/refresh` - Refresh JWT token
-- `POST /api/auth/register` - Register new user (admin-only)
-- `GET /api/auth/me` - Get current user info (protected)
-
-### Data Access (all protected)
-- `GET /api/users` - Get all users (admin-only)
-- `GET /api/children` - Get children for current user
-- `GET /api/groups` - Get all groups
-- `GET /api/documents` - Get documents for current user
-- `GET /api/absences/:childId` - Get absences for a child (ownership validated)
-
-### Health Check
-- `GET /api/health` - Backend health status
-
-## Security Features
-
-1. **Password Security**: bcrypt hashing with salt rounds
-2. **JWT Tokens**: Signed tokens with 24h expiration
-3. **Refresh Tokens**: 7-day expiration for seamless re-authentication
-4. **Authorization**: All sensitive endpoints require valid JWT
-5. **Child Ownership Validation**: Parents can only access their own children's data
-6. **Admin-only Registration**: New users can only be created by administrators
-7. **Mandatory JWT_SECRET**: Server refuses to start without proper secret configuration
-
-## Deployment
-
-The project is configured for Replit's autoscale deployment:
-- **Build command:** `npm run build`
-- **Run command:** `npx vite preview --host 0.0.0.0 --port 5000`
-- **Deployment type:** Autoscale (suitable for stateless web applications)
-
-**Before deploying:**
-1. Ensure `JWT_SECRET` is set in Replit Secrets
-2. Verify `DATABASE_URL` is configured
-3. Run database migrations if needed
-4. Test authentication flow
-
-## Configuration Notes
-
-### Vite Configuration
-
-The Vite config (`vite.config.ts`) includes:
-- Port 5000 for compatibility with Replit
-- Host binding to `0.0.0.0` for external access
-- HMR configured for Replit's proxy environment
-- API proxy: `/api` → `http://localhost:3000`
-- Path aliases (`@/` maps to project root)
-
-### Environment Variables
-
-**Development (.env file):**
-```
-DATABASE_URL=<provided by Replit>
-JWT_SECRET=<your-secret-key-min-32-chars>
-```
-
-**Production (Replit Secrets):**
-- Add all environment variables to Replit Secrets
-- Never commit `.env` to version control
-
-### Tailwind CSS
-
-Currently uses Tailwind via CDN (see `index.html`). For production optimization, consider installing Tailwind as a PostCSS plugin.
-
-## Future Enhancements
-
-Potential improvements for production deployment:
-- **Rate Limiting**: Add rate limiting to prevent brute-force attacks
-- **Refresh Token Revocation**: Implement token blacklist for logout
-- **Email Verification**: Add email verification for new accounts
-- **Password Reset**: Implement password reset flow
-- **File Upload**: Add secure file upload for documents
-- **Real-time Notifications**: WebSocket-based push notifications
-- **Audit Logging**: Track all authentication and authorization events
-- **CORS Configuration**: Lock down CORS to specific domains in production
-- **Tailwind PostCSS**: Install Tailwind as PostCSS plugin for better performance
-- **Admin Dashboard**: Create comprehensive admin interface for staff
-
-## Security Best Practices
-
-1. **JWT_SECRET**: Use a strong, random secret (min 32 characters)
-2. **Database Backups**: Regular backups of PostgreSQL database
-3. **HTTPS Only**: Always use HTTPS in production (Replit handles this)
-4. **Token Rotation**: Implement regular JWT secret rotation
-5. **Input Validation**: All user inputs are validated server-side
-6. **SQL Injection Prevention**: Using Drizzle ORM with parameterized queries
-7. **XSS Prevention**: React's built-in XSS protection
-
-## Troubleshooting
-
-**Backend won't start:**
-- Check if `JWT_SECRET` is set in environment variables
-- Verify `DATABASE_URL` is configured
-- Check backend logs for error messages
-
-**Login fails:**
-- Verify credentials match test users
-- Check browser console for API errors
-- Verify backend is running on port 3000
-
-**API requests fail:**
-- Check Vite proxy configuration in `vite.config.ts`
-- Verify backend server is running
-- Check CORS settings
-
-## Notes
-
-- All passwords are securely hashed with bcrypt (never stored in plain text)
-- JWT tokens are signed and verified on every request
-- Child data access is restricted by parent ownership
-- Admin-only endpoints require both authentication and role verification
-- The application uses production-grade security practices throughout
+-   **PostgreSQL:** Relational database for all application data (hosted via Neon on Replit).
+-   **Vite:** Frontend build tool.
+-   **React:** Frontend library.
+-   **Tailwind CSS:** Utility-first CSS framework (used via CDN).
+-   **Node.js/Express.js:** Backend runtime and web framework.
+-   **Drizzle ORM:** TypeScript ORM for PostgreSQL interaction.
+-   **bcrypt:** Library for password hashing.
+-   **jsonwebtoken (JWT):** Library for secure user authentication.
+-   **Axios:** Promise-based HTTP client for frontend API requests.
