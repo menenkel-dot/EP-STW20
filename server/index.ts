@@ -180,6 +180,23 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthRequest, res: Respons
   }
 });
 
+// ==================== USER ROUTES ====================
+
+// Get all users (admin only)
+app.get('/api/users', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const users = await storage.getAllUsers();
+    res.json(users);
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // ==================== CHILDREN ROUTES ====================
 
 // Get children for current user
