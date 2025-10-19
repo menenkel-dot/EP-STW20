@@ -124,6 +124,15 @@ export const authAPI = {
   },
 };
 
+// ==================== USERS API ====================
+
+export const usersAPI = {
+  getAll: async () => {
+    const response = await apiClient.get('/users');
+    return response.data;
+  },
+};
+
 // ==================== CHILDREN API ====================
 
 export const childrenAPI = {
