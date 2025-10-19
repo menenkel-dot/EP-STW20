@@ -1,0 +1,213 @@
+import React, { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { MOCK_ABSENCES, MOCK_USERS, MOCK_GROUPS } from '../constants';
+import type { Absence, AbsenceReason, Child } from '../types';
+import { UserRole } from '../types';
+import Card from './Card';
+import Button from './Button';
+
+const allChildren: Child[] = MOCK_USERS.flatMap(user => user.children);
+const getChildById = (childId: number): Child | undefined => allChildren.find(c => c.id === childId);
+const getGroupName = (groupId: number): string => MOCK_GROUPS.find(g => g.id === groupId)?.name || 'N/A';
+const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+interface AbwesenheitProps {
+  addNotification: (message: string) => void;
+}
+
+const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
+    const { user, activeChild } = useAuth();
+    const [absences, setAbsences] = useState<Absence[]>(MOCK_ABSENCES);
+
+    // Form state for parents
+    const [reason, setReason] = useState<AbsenceReason>('krank');
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [symptoms, setSymptoms] = useState('');
+
+    const handleReportAbsence = () => {
+        if (!activeChild) {
+            alert('Bitte wählen Sie ein Kind aus.');
+            return;
+        }
+        if (reason === 'krank' && !symptoms.trim()) {
+            alert('Bitte geben Sie die Symptome an.');
+            return;
+        }
+        if (!startDate || !endDate) {
+            alert('Bitte geben Sie einen gültigen Zeitraum an.');
+            return;
+        }
+
+        const newAbsence: Absence = {
+            id: Date.now(),
+            childId: activeChild.id,
+            startDate,
+            endDate,
+            reason,
+            symptoms: reason === 'krank' ? symptoms : undefined,
+            reportedAt: new Date().toISOString(),
+        };
+
+        setAbsences(prev => [newAbsence, ...prev]);
+        addNotification(`Abwesenheit für ${activeChild.name} wurde gemeldet.`);
+
+        // Reset form
+        setReason('krank');
+        setStartDate(new Date().toISOString().split('T')[0]);
+        setEndDate(new Date().toISOString().split('T')[0]);
+        setSymptoms('');
+    };
+    
+    const handleDeleteAbsence = (absenceId: number) => {
+        if (window.confirm("Sind Sie sicher, dass Sie diese Abwesenheitsmeldung löschen möchten?")) {
+            const absenceToDelete = absences.find(a => a.id === absenceId);
+            if (absenceToDelete && activeChild) {
+                setAbsences(prev => prev.filter(a => a.id !== absenceId));
+                addNotification(`Abwesenheitsmeldung für ${activeChild.name} vom ${formatDate(absenceToDelete.startDate)} wurde gelöscht.`);
+            }
+        }
+    };
+
+
+    const ParentView = () => {
+        if (!activeChild) {
+            return (
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800">Abwesenheit melden</h1>
+                    <p className="mt-4 text-gray-600">Bitte wählen Sie ein Kind aus dem Header-Menü aus, um eine Abwesenheit zu melden.</p>
+                </div>
+            );
+        }
+
+        const myAbsences = absences.filter(a => a.childId === activeChild.id);
+
+        return (
+            <div>
+                <h1 className="text-3xl font-bold text-gray-800">Abwesenheit für {activeChild.name} melden</h1>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+                    <Card>
+                        <div className="p-6">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Neue Meldung</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Grund der Abwesenheit</label>
+                                    <div className="mt-2 flex space-x-4">
+                                        <label className="flex items-center">
+                                            <input type="radio" value="krank" checked={reason === 'krank'} onChange={() => setReason('krank')} className="form-radio h-4 w-4 text-cyan-600"/>
+                                            <span className="ml-2 text-gray-700">Krankheit</span>
+                                        </label>
+                                        <label className="flex items-center">
+                                            <input type="radio" value="sonstige" checked={reason === 'sonstige'} onChange={() => setReason('sonstige')} className="form-radio h-4 w-4 text-cyan-600"/>
+                                            <span className="ml-2 text-gray-700">Sonstige</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                {reason === 'krank' && (
+                                    <div>
+                                        <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700">Symptome (Pflichtfeld)</label>
+                                        <textarea id="symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                                    </div>
+                                )}
+                                 {reason === 'sonstige' && (
+                                    <div>
+                                        <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700">Grund (z.B. Arzttermin)</label>
+                                        <textarea id="symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                                    </div>
+                                )}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Von</label>
+                                        <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                                    </div>
+                                    <div>
+                                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Bis (einschließlich)</label>
+                                        <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                                    </div>
+                                </div>
+                                <div className="text-right pt-2">
+                                    <Button onClick={handleReportAbsence}>Meldung absenden</Button>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                    <Card>
+                        <div className="p-6">
+                            <h2 className="text-xl font-bold text-gray-800 mb-4">Gemeldete Abwesenheiten</h2>
+                             {myAbsences.length > 0 ? (
+                                <ul className="space-y-3 max-h-96 overflow-y-auto">
+                                    {myAbsences.map(a => (
+                                        <li key={a.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-start">
+                                            <div>
+                                                <p className="font-semibold">{formatDate(a.startDate)} - {formatDate(a.endDate)}</p>
+                                                <p className="text-sm text-gray-700">Grund: <span className="capitalize">{a.reason === 'krank' ? 'Krankheit' : 'Sonstiges'}</span></p>
+                                                {a.symptoms && <p className="text-sm text-gray-500">Details: {a.symptoms}</p>}
+                                            </div>
+                                            <button 
+                                                onClick={() => handleDeleteAbsence(a.id)} 
+                                                className="ml-4 text-gray-400 hover:text-red-600 focus:outline-none"
+                                                title="Meldung löschen"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                             ) : (
+                                <p className="text-gray-500">Für {activeChild.name} wurden noch keine Abwesenheiten gemeldet.</p>
+                             )}
+                        </div>
+                    </Card>
+                </div>
+            </div>
+        );
+    };
+
+    const AdminView = () => (
+        <div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-6">Übersicht der Abwesenheiten</h1>
+             <Card>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gruppe</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details / Symptome</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gemeldet am</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                           {absences.sort((a,b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()).map(absence => {
+                                const child = getChildById(absence.childId);
+                                const groupName = child ? getGroupName(child.groupId) : 'N/A';
+                                return (
+                                    <tr key={absence.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{child?.name || 'Unbekannt'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{groupName}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(absence.startDate)} - {formatDate(absence.endDate)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${absence.reason === 'krank' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                {absence.reason === 'krank' ? 'Krank' : 'Sonstige'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{absence.symptoms || '-'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(absence.reportedAt).toLocaleString('de-DE')}</td>
+                                    </tr>
+                                )
+                           })}
+                        </tbody>
+                    </table>
+                </div>
+             </Card>
+        </div>
+    );
+
+    return user?.role === UserRole.ADMIN ? <AdminView /> : <ParentView />;
+};
+
+export default Abwesenheit;
