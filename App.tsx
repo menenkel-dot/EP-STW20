@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from './hooks/useAuth';
 import type { User, Notification, Child } from './types';
 import { MOCK_NOTIFICATIONS } from './constants';
-import { authAPI, type LoginResponse } from './api/client';
+import { authAPI, type LoginResponse } from './lib/client';
 import Login from './components/Login';
 import Layout from './components/Layout';
 

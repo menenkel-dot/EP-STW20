@@ -56,7 +56,7 @@ This is a production-ready parent portal web application for Kinderhaus St. Wolf
 
 ```
 /
-├── api/                 # Frontend API client
+├── lib/                 # Frontend library (API client)
 │   └── client.ts       # Axios client with JWT interceptors
 ├── components/          # React components
 │   ├── Layout.tsx      # Main layout wrapper
