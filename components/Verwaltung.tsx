@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MOCK_USERS, MOCK_GROUPS } from '../constants';
 import type { User, Child, Group } from '../types';
 import { UserRole } from '../types';
@@ -6,11 +6,15 @@ import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
 import { useAuth } from '../hooks/useAuth';
+import { authAPI, usersAPI, groupsAPI } from '../lib/client';
 
 const Verwaltung: React.FC = () => {
     const { user: currentUser } = useAuth();
-    const [users, setUsers] = useState<User[]>(MOCK_USERS);
-    const [groups, setGroups] = useState<Group[]>(MOCK_GROUPS);
+    const [users, setUsers] = useState<User[]>([]);
+    const [groups, setGroups] = useState<Group[]>([]);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Modal states
     const [isUserModalOpen, setUserModalOpen] = useState(false);
@@ -26,6 +30,32 @@ const Verwaltung: React.FC = () => {
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
     const [childToAddId, setChildToAddId] = useState<string>('');
 
+    // Load users and groups on mount
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                setIsLoadingUsers(true);
+                setIsLoadingGroups(true);
+                setError(null);
+
+                const [usersData, groupsData] = await Promise.all([
+                    usersAPI.getAll(),
+                    groupsAPI.getAll()
+                ]);
+
+                setUsers(usersData);
+                setGroups(groupsData);
+            } catch (err: any) {
+                console.error('Fehler beim Laden der Daten:', err);
+                setError(err.response?.data?.error || 'Fehler beim Laden der Daten');
+            } finally {
+                setIsLoadingUsers(false);
+                setIsLoadingGroups(false);
+            }
+        };
+
+        loadData();
+    }, []);
 
     // Form state for new/edit user
     const [formUserName, setFormUserName] = useState('');
@@ -71,35 +101,58 @@ const Verwaltung: React.FC = () => {
         setEditingUser(null);
     };
 
-    const handleSaveUser = () => {
+    const handleSaveUser = async () => {
         if (!formUserName || !formUserUsername) {
             alert('Bitte Name und Benutzername ausfüllen.');
             return;
         }
 
         if (editingUser) {
+            // TODO: Implementieren Sie die Update-Funktion
             setUsers(users.map(u => 
                 u.id === editingUser.id 
                 ? { ...u, name: formUserName, username: formUserUsername } 
                 : u
             ));
+            handleCloseUserModal();
         } else {
             if (!formUserPassword) {
                 alert('Bitte ein initiales Passwort festlegen.');
                 return;
             }
-            const newUser: User = {
-                id: Date.now(),
-                name: formUserName,
-                username: formUserUsername,
-                password: formUserPassword,
-                role: formUserRole,
-                children: [],
-                avatarUrl: `https://i.pravatar.cc/150?u=${formUserUsername}`
-            };
-            setUsers([...users, newUser]);
+
+            try {
+                setError(null);
+                
+                // Benutzer über API erstellen
+                const response = await authAPI.register({
+                    username: formUserUsername,
+                    password: formUserPassword,
+                    name: formUserName,
+                    role: formUserRole
+                });
+
+                // Benutzer zur Liste hinzufügen
+                const newUser: User = {
+                    id: response.user.id,
+                    name: response.user.name,
+                    username: response.user.username,
+                    password: '', // Passwort nicht im Frontend speichern
+                    role: response.user.role as UserRole,
+                    children: [],
+                    avatarUrl: response.user.avatarUrl || `https://i.pravatar.cc/150?u=${formUserUsername}`
+                };
+                
+                setUsers([...users, newUser]);
+                handleCloseUserModal();
+                alert(`Benutzer ${formUserName} erfolgreich erstellt!`);
+            } catch (err: any) {
+                console.error('Fehler beim Erstellen des Benutzers:', err);
+                const errorMessage = err.response?.data?.error || 'Fehler beim Erstellen des Benutzers';
+                alert(errorMessage);
+                setError(errorMessage);
+            }
         }
-        handleCloseUserModal();
     };
 
     const handleDeleteUser = (userToDelete: User) => {
@@ -257,26 +310,37 @@ const Verwaltung: React.FC = () => {
 
     return (
         <div>
+            {error && (
+                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {error}
+                </div>
+            )}
+
             {/* User Management Section */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">Benutzerverwaltung</h1>
                 <Button onClick={() => handleOpenUserModal(null)}>+ Neuer Benutzer</Button>
             </div>
             
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Benutzername</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rolle</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kinder</th>
-                                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Aktionen</span></th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {users.map(user => (
+            {isLoadingUsers ? (
+                <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+                    <p className="text-gray-500">Lade Benutzer...</p>
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Benutzername</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rolle</th>
+                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kinder</th>
+                                    <th scope="col" className="relative px-6 py-3"><span className="sr-only">Aktionen</span></th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {users.map(user => (
                                 <tr key={user.id}>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.username}</td>
@@ -329,6 +393,7 @@ const Verwaltung: React.FC = () => {
                     </table>
                 </div>
             </div>
+            )}
 
             {/* Group Management Section */}
             <div className="flex justify-between items-center mt-12 mb-6">
