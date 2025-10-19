@@ -52,6 +52,83 @@ export const documents = pgTable('documents', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Veranstaltungen-Tabelle
+export const events = pgTable('events', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  date: varchar('date', { length: 100 }).notNull(),
+  time: varchar('time', { length: 50 }).notNull(),
+  location: varchar('location', { length: 255 }).notNull(),
+  description: text('description').notNull(),
+  groupIds: text('group_ids'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Elternpost-Tabelle
+export const posts = pgTable('posts', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull(),
+  content: text('content').notNull(),
+  author: varchar('author', { length: 255 }).notNull(),
+  date: varchar('date', { length: 20 }).notNull(),
+  imageUrl: text('image_url'),
+  groupIds: text('group_ids'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Ferienzeiträume-Tabelle
+export const holidayPeriods = pgTable('holiday_periods', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  startDate: varchar('start_date', { length: 10 }).notNull(),
+  endDate: varchar('end_date', { length: 10 }).notNull(),
+  deadline: varchar('deadline', { length: 10 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Feriendienst-Buchungen-Tabelle
+export const holidayBookings = pgTable('holiday_bookings', {
+  id: serial('id').primaryKey(),
+  periodId: integer('period_id').notNull().references(() => holidayPeriods.id, { onDelete: 'cascade' }),
+  childId: integer('child_id').notNull().references(() => children.id, { onDelete: 'cascade' }),
+  needsCare: boolean('needs_care').notNull(),
+  fromDate: varchar('from_date', { length: 10 }),
+  toDate: varchar('to_date', { length: 10 }),
+  fromTime: varchar('from_time', { length: 10 }),
+  toTime: varchar('to_time', { length: 10 }),
+  withLunch: boolean('with_lunch').default(false),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Konversationen-Tabelle
+export const conversations = pgTable('conversations', {
+  id: serial('id').primaryKey(),
+  participantIds: text('participant_ids').notNull(),
+  lastMessageAt: timestamp('last_message_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Nachrichten-Tabelle
+export const messages = pgTable('messages', {
+  id: serial('id').primaryKey(),
+  conversationId: integer('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  senderId: integer('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+  read: boolean('read').default(false),
+});
+
+// Kontakte-Tabelle
+export const contacts = pgTable('contacts', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  role: varchar('role', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Relationen
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
@@ -92,6 +169,36 @@ export const documentsRelations = relations(documents, ({ one }) => ({
   }),
 }));
 
+export const holidayPeriodsRelations = relations(holidayPeriods, ({ many }) => ({
+  bookings: many(holidayBookings),
+}));
+
+export const holidayBookingsRelations = relations(holidayBookings, ({ one }) => ({
+  period: one(holidayPeriods, {
+    fields: [holidayBookings.periodId],
+    references: [holidayPeriods.id],
+  }),
+  child: one(children, {
+    fields: [holidayBookings.childId],
+    references: [children.id],
+  }),
+}));
+
+export const conversationsRelations = relations(conversations, ({ many }) => ({
+  messages: many(messages),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(users, {
+    fields: [messages.senderId],
+    references: [users.id],
+  }),
+}));
+
 // TypeScript Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -99,4 +206,19 @@ export type Child = typeof children.$inferSelect;
 export type InsertChild = typeof children.$inferInsert;
 export type Group = typeof groups.$inferSelect;
 export type Absence = typeof absences.$inferSelect;
+export type InsertAbsence = typeof absences.$inferInsert;
 export type Document = typeof documents.$inferSelect;
+export type Event = typeof events.$inferSelect;
+export type InsertEvent = typeof events.$inferInsert;
+export type Post = typeof posts.$inferSelect;
+export type InsertPost = typeof posts.$inferInsert;
+export type HolidayPeriod = typeof holidayPeriods.$inferSelect;
+export type InsertHolidayPeriod = typeof holidayPeriods.$inferInsert;
+export type HolidayBooking = typeof holidayBookings.$inferSelect;
+export type InsertHolidayBooking = typeof holidayBookings.$inferInsert;
+export type Conversation = typeof conversations.$inferSelect;
+export type InsertConversation = typeof conversations.$inferInsert;
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = typeof messages.$inferInsert;
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = typeof contacts.$inferInsert;

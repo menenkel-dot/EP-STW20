@@ -261,7 +261,7 @@ app.get('/api/absences/:childId', authenticateToken, async (req: AuthRequest, re
       return res.status(404).json({ error: 'Kind nicht gefunden' });
     }
 
-    if (child.parentId !== req.user.userId) {
+    if (child.parentId !== req.user.userId && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Zugriff verweigert: Dieses Kind gehört nicht zu Ihrem Konto' });
     }
 
@@ -269,6 +269,711 @@ app.get('/api/absences/:childId', authenticateToken, async (req: AuthRequest, re
     res.json(absences);
   } catch (error) {
     console.error('Get absences error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create absence
+app.post('/api/absences', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { childId, startDate, endDate, reason, symptoms } = req.body;
+
+    if (!childId || !startDate || !endDate || !reason) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    // Verify child ownership
+    const child = await storage.getChild(childId);
+    if (!child) {
+      return res.status(404).json({ error: 'Kind nicht gefunden' });
+    }
+
+    if (child.parentId !== req.user.userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const absence = await storage.createAbsence({
+      childId,
+      startDate,
+      endDate,
+      reason,
+      symptoms: symptoms || null
+    });
+
+    res.status(201).json(absence);
+  } catch (error) {
+    console.error('Create absence error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update absence
+app.put('/api/absences/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    const updates = req.body;
+
+    const absence = await storage.updateAbsence(id, updates);
+    if (!absence) {
+      return res.status(404).json({ error: 'Abwesenheit nicht gefunden' });
+    }
+
+    res.json(absence);
+  } catch (error) {
+    console.error('Update absence error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete absence
+app.delete('/api/absences/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deleteAbsence(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Abwesenheit nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete absence error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== EVENTS ROUTES ====================
+
+// Get all events
+app.get('/api/events', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const events = await storage.getAllEvents();
+    res.json(events);
+  } catch (error) {
+    console.error('Get events error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create event (admin only)
+app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { title, date, time, location, description, groupIds } = req.body;
+
+    if (!title || !date || !time || !location || !description) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    const event = await storage.createEvent({
+      title,
+      date,
+      time,
+      location,
+      description,
+      groupIds: groupIds ? JSON.stringify(groupIds) : null
+    });
+
+    res.status(201).json(event);
+  } catch (error) {
+    console.error('Create event error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update event (admin only)
+app.put('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const { title, date, time, location, description, groupIds } = req.body;
+
+    const updates: any = {};
+    if (title) updates.title = title;
+    if (date) updates.date = date;
+    if (time) updates.time = time;
+    if (location) updates.location = location;
+    if (description) updates.description = description;
+    if (groupIds !== undefined) updates.groupIds = groupIds ? JSON.stringify(groupIds) : null;
+
+    const event = await storage.updateEvent(id, updates);
+    if (!event) {
+      return res.status(404).json({ error: 'Veranstaltung nicht gefunden' });
+    }
+
+    res.json(event);
+  } catch (error) {
+    console.error('Update event error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete event (admin only)
+app.delete('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deleteEvent(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Veranstaltung nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete event error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== POSTS ROUTES ====================
+
+// Get all posts
+app.get('/api/posts', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const posts = await storage.getAllPosts();
+    res.json(posts);
+  } catch (error) {
+    console.error('Get posts error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create post (admin only)
+app.post('/api/posts', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { title, content, author, date, imageUrl, groupIds } = req.body;
+
+    if (!title || !content || !author || !date) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    const post = await storage.createPost({
+      title,
+      content,
+      author,
+      date,
+      imageUrl: imageUrl || null,
+      groupIds: groupIds ? JSON.stringify(groupIds) : null
+    });
+
+    res.status(201).json(post);
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update post (admin only)
+app.put('/api/posts/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const { title, content, author, date, imageUrl, groupIds } = req.body;
+
+    const updates: any = {};
+    if (title) updates.title = title;
+    if (content) updates.content = content;
+    if (author) updates.author = author;
+    if (date) updates.date = date;
+    if (imageUrl !== undefined) updates.imageUrl = imageUrl;
+    if (groupIds !== undefined) updates.groupIds = groupIds ? JSON.stringify(groupIds) : null;
+
+    const post = await storage.updatePost(id, updates);
+    if (!post) {
+      return res.status(404).json({ error: 'Beitrag nicht gefunden' });
+    }
+
+    res.json(post);
+  } catch (error) {
+    console.error('Update post error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete post (admin only)
+app.delete('/api/posts/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deletePost(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Beitrag nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete post error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== HOLIDAY PERIODS ROUTES ====================
+
+// Get all holiday periods
+app.get('/api/holiday-periods', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const periods = await storage.getAllHolidayPeriods();
+    res.json(periods);
+  } catch (error) {
+    console.error('Get holiday periods error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create holiday period (admin only)
+app.post('/api/holiday-periods', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { name, startDate, endDate, deadline } = req.body;
+
+    if (!name || !startDate || !endDate || !deadline) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    const period = await storage.createHolidayPeriod({
+      name,
+      startDate,
+      endDate,
+      deadline
+    });
+
+    res.status(201).json(period);
+  } catch (error) {
+    console.error('Create holiday period error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update holiday period (admin only)
+app.put('/api/holiday-periods/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const updates = req.body;
+
+    const period = await storage.updateHolidayPeriod(id, updates);
+    if (!period) {
+      return res.status(404).json({ error: 'Ferienzeitraum nicht gefunden' });
+    }
+
+    res.json(period);
+  } catch (error) {
+    console.error('Update holiday period error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete holiday period (admin only)
+app.delete('/api/holiday-periods/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deleteHolidayPeriod(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Ferienzeitraum nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete holiday period error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== HOLIDAY BOOKINGS ROUTES ====================
+
+// Get all holiday bookings (admin only)
+app.get('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const bookings = await storage.getAllHolidayBookings();
+    res.json(bookings);
+  } catch (error) {
+    console.error('Get holiday bookings error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Get holiday bookings by period
+app.get('/api/holiday-bookings/period/:periodId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const periodId = parseInt(req.params.periodId);
+    const bookings = await storage.getHolidayBookingsByPeriodId(periodId);
+    res.json(bookings);
+  } catch (error) {
+    console.error('Get holiday bookings by period error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Get holiday bookings by child
+app.get('/api/holiday-bookings/child/:childId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const childId = parseInt(req.params.childId);
+
+    // Verify child ownership
+    const child = await storage.getChild(childId);
+    if (!child) {
+      return res.status(404).json({ error: 'Kind nicht gefunden' });
+    }
+
+    if (child.parentId !== req.user.userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const bookings = await storage.getHolidayBookingsByChildId(childId);
+    res.json(bookings);
+  } catch (error) {
+    console.error('Get holiday bookings by child error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create holiday booking
+app.post('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { periodId, childId, needsCare, fromDate, toDate, fromTime, toTime, withLunch } = req.body;
+
+    if (periodId === undefined || childId === undefined || needsCare === undefined) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    // Verify child ownership
+    const child = await storage.getChild(childId);
+    if (!child) {
+      return res.status(404).json({ error: 'Kind nicht gefunden' });
+    }
+
+    if (child.parentId !== req.user.userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const booking = await storage.createHolidayBooking({
+      periodId,
+      childId,
+      needsCare,
+      fromDate: fromDate || null,
+      toDate: toDate || null,
+      fromTime: fromTime || null,
+      toTime: toTime || null,
+      withLunch: withLunch || false
+    });
+
+    res.status(201).json(booking);
+  } catch (error) {
+    console.error('Create holiday booking error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update holiday booking
+app.put('/api/holiday-bookings/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    const updates = req.body;
+
+    const booking = await storage.updateHolidayBooking(id, updates);
+    if (!booking) {
+      return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
+
+    res.json(booking);
+  } catch (error) {
+    console.error('Update holiday booking error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete holiday booking
+app.delete('/api/holiday-bookings/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deleteHolidayBooking(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete holiday booking error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== CONVERSATIONS ROUTES ====================
+
+// Get conversations for current user
+app.get('/api/conversations', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const conversations = await storage.getConversationsByUserId(req.user.userId);
+    res.json(conversations);
+  } catch (error) {
+    console.error('Get conversations error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create conversation
+app.post('/api/conversations', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { participantIds } = req.body;
+
+    if (!participantIds || !Array.isArray(participantIds)) {
+      return res.status(400).json({ error: 'Fehlende oder ungültige participantIds' });
+    }
+
+    const conversation = await storage.createConversation({
+      participantIds: JSON.stringify(participantIds)
+    });
+
+    res.status(201).json(conversation);
+  } catch (error) {
+    console.error('Create conversation error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== MESSAGES ROUTES ====================
+
+// Get messages for a conversation
+app.get('/api/messages/:conversationId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const conversationId = parseInt(req.params.conversationId);
+    
+    // Verify user is part of conversation
+    const conversation = await storage.getConversation(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const participantIds = JSON.parse(conversation.participantIds);
+    if (!participantIds.includes(req.user.userId)) {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const messages = await storage.getMessagesByConversationId(conversationId);
+    res.json(messages);
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create message
+app.post('/api/messages', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { conversationId, content } = req.body;
+
+    if (!conversationId || !content) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    // Verify user is part of conversation
+    const conversation = await storage.getConversation(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    const participantIds = JSON.parse(conversation.participantIds);
+    if (!participantIds.includes(req.user.userId)) {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const message = await storage.createMessage({
+      conversationId,
+      senderId: req.user.userId,
+      content
+    });
+
+    // Update conversation's lastMessageAt
+    await storage.updateConversation(conversationId, new Date());
+
+    res.status(201).json(message);
+  } catch (error) {
+    console.error('Create message error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Mark message as read
+app.put('/api/messages/:id/read', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    await storage.markMessageAsRead(id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark message as read error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== CONTACTS ROUTES ====================
+
+// Get all contacts
+app.get('/api/contacts', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const contacts = await storage.getAllContacts();
+    res.json(contacts);
+  } catch (error) {
+    console.error('Get contacts error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create contact (admin only)
+app.post('/api/contacts', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { name, role, phone, email } = req.body;
+
+    if (!name || !role || !phone || !email) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    const contact = await storage.createContact({
+      name,
+      role,
+      phone,
+      email
+    });
+
+    res.status(201).json(contact);
+  } catch (error) {
+    console.error('Create contact error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update contact (admin only)
+app.put('/api/contacts/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const updates = req.body;
+
+    const contact = await storage.updateContact(id, updates);
+    if (!contact) {
+      return res.status(404).json({ error: 'Kontakt nicht gefunden' });
+    }
+
+    res.json(contact);
+  } catch (error) {
+    console.error('Update contact error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete contact (admin only)
+app.delete('/api/contacts/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deleteContact(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Kontakt nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete contact error:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });

@@ -1,14 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { MOCK_ABSENCES, MOCK_USERS, MOCK_GROUPS } from '../constants';
-import type { Absence, AbsenceReason, Child } from '../types';
+import type { Absence, AbsenceReason, Child, Group } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
+import { absencesAPI, childrenAPI, groupsAPI } from '../lib/client';
 
-const allChildren: Child[] = MOCK_USERS.flatMap(user => user.children);
-const getChildById = (childId: number): Child | undefined => allChildren.find(c => c.id === childId);
-const getGroupName = (groupId: number): string => MOCK_GROUPS.find(g => g.id === groupId)?.name || 'N/A';
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 interface AbwesenheitProps {
@@ -17,7 +14,10 @@ interface AbwesenheitProps {
 
 const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const { user, activeChild } = useAuth();
-    const [absences, setAbsences] = useState<Absence[]>(MOCK_ABSENCES);
+    const [absences, setAbsences] = useState<Absence[]>([]);
+    const [children, setChildren] = useState<Child[]>([]);
+    const [groups, setGroups] = useState<Group[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
 
     // Form state for parents
     const [reason, setReason] = useState<AbsenceReason>('krank');
@@ -25,7 +25,58 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [symptoms, setSymptoms] = useState('');
 
-    const handleReportAbsence = () => {
+    const getChildById = (childId: number): Child | undefined => children.find(c => c.id === childId);
+    const getGroupName = (groupId: number): string => groups.find(g => g.id === groupId)?.name || 'N/A';
+
+    useEffect(() => {
+        const loadData = async () => {
+            if (user?.role === UserRole.ADMIN) {
+                setIsLoading(true);
+                try {
+                    const [childrenData, groupsData] = await Promise.all([
+                        childrenAPI.getAll(),
+                        groupsAPI.getAll()
+                    ]);
+                    setChildren(childrenData);
+                    setGroups(groupsData);
+
+                    const allAbsencesPromises = childrenData.map(child => 
+                        absencesAPI.getByChildId(child.id).catch(() => [])
+                    );
+                    const allAbsencesArrays = await Promise.all(allAbsencesPromises);
+                    const combinedAbsences = allAbsencesArrays.flat();
+                    setAbsences(combinedAbsences);
+                } catch (error) {
+                    console.error('Fehler beim Laden der Daten:', error);
+                    addNotification('Fehler beim Laden der Daten');
+                } finally {
+                    setIsLoading(false);
+                }
+                return;
+            }
+            if (!activeChild) {
+                setAbsences([]);
+                return;
+            }
+            setIsLoading(true);
+            try {
+                const [absencesData, groupsData] = await Promise.all([
+                    absencesAPI.getByChildId(activeChild.id),
+                    groupsAPI.getAll()
+                ]);
+                setAbsences(absencesData);
+                setGroups(groupsData);
+            } catch (error) {
+                console.error('Fehler beim Laden der Abwesenheiten:', error);
+                addNotification('Fehler beim Laden der Abwesenheiten');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadData();
+    }, [activeChild, user]);
+
+    const handleReportAbsence = async () => {
         if (!activeChild) {
             alert('Bitte wählen Sie ein Kind aus.');
             return;
@@ -39,32 +90,47 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
             return;
         }
 
-        const newAbsence: Absence = {
-            id: Date.now(),
-            childId: activeChild.id,
-            startDate,
-            endDate,
-            reason,
-            symptoms: reason === 'krank' ? symptoms : undefined,
-            reportedAt: new Date().toISOString(),
-        };
+        setIsLoading(true);
+        try {
+            const newAbsence = await absencesAPI.create({
+                childId: activeChild.id,
+                startDate,
+                endDate,
+                reason,
+                symptoms: reason === 'krank' ? symptoms : undefined,
+            });
 
-        setAbsences(prev => [newAbsence, ...prev]);
-        addNotification(`Abwesenheit für ${activeChild.name} wurde gemeldet.`);
+            setAbsences(prev => [newAbsence, ...prev]);
+            addNotification(`Abwesenheit für ${activeChild.name} wurde gemeldet.`);
 
-        // Reset form
-        setReason('krank');
-        setStartDate(new Date().toISOString().split('T')[0]);
-        setEndDate(new Date().toISOString().split('T')[0]);
-        setSymptoms('');
+            // Reset form
+            setReason('krank');
+            setStartDate(new Date().toISOString().split('T')[0]);
+            setEndDate(new Date().toISOString().split('T')[0]);
+            setSymptoms('');
+        } catch (error) {
+            console.error('Fehler beim Melden der Abwesenheit:', error);
+            alert('Fehler beim Melden der Abwesenheit. Bitte versuchen Sie es erneut.');
+        } finally {
+            setIsLoading(false);
+        }
     };
     
-    const handleDeleteAbsence = (absenceId: number) => {
+    const handleDeleteAbsence = async (absenceId: number) => {
         if (window.confirm("Sind Sie sicher, dass Sie diese Abwesenheitsmeldung löschen möchten?")) {
             const absenceToDelete = absences.find(a => a.id === absenceId);
             if (absenceToDelete && activeChild) {
-                setAbsences(prev => prev.filter(a => a.id !== absenceId));
-                addNotification(`Abwesenheitsmeldung für ${activeChild.name} vom ${formatDate(absenceToDelete.startDate)} wurde gelöscht.`);
+                setIsLoading(true);
+                try {
+                    await absencesAPI.delete(absenceId);
+                    setAbsences(prev => prev.filter(a => a.id !== absenceId));
+                    addNotification(`Abwesenheitsmeldung für ${activeChild.name} vom ${formatDate(absenceToDelete.startDate)} wurde gelöscht.`);
+                } catch (error) {
+                    console.error('Fehler beim Löschen der Abwesenheit:', error);
+                    alert('Fehler beim Löschen der Abwesenheit. Bitte versuchen Sie es erneut.');
+                } finally {
+                    setIsLoading(false);
+                }
             }
         }
     };
@@ -134,7 +200,11 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
                     <Card>
                         <div className="p-6">
                             <h2 className="text-xl font-bold text-gray-800 mb-4">Gemeldete Abwesenheiten</h2>
-                             {myAbsences.length > 0 ? (
+                             {isLoading ? (
+                                <div className="flex justify-center py-8">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+                                </div>
+                             ) : myAbsences.length > 0 ? (
                                 <ul className="space-y-3 max-h-96 overflow-y-auto">
                                     {myAbsences.map(a => (
                                         <li key={a.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-start">
@@ -168,20 +238,25 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const AdminView = () => (
         <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-6">Übersicht der Abwesenheiten</h1>
-             <Card>
+            <Card>
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gruppe</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details / Symptome</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gemeldet am</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                    {isLoading ? (
+                        <div className="flex justify-center py-8">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+                        </div>
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gruppe</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details / Symptome</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gemeldet am</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
                            {absences.sort((a,b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()).map(absence => {
                                 const child = getChildById(absence.childId);
                                 const groupName = child ? getGroupName(child.groupId) : 'N/A';
@@ -200,10 +275,11 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
                                     </tr>
                                 )
                            })}
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    )}
                 </div>
-             </Card>
+            </Card>
         </div>
     );
 

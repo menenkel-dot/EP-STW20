@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { MOCK_POSTS, MOCK_GROUPS } from '../constants';
-import type { Post } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import type { Post, Group } from '../types';
 import { UserRole } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
+import { postsAPI, groupsAPI } from '../lib/client';
 
 
 interface ElternpostProps {
@@ -14,7 +14,9 @@ interface ElternpostProps {
 
 const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
   const { user, activeChild } = useAuth();
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   
@@ -24,6 +26,29 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
   const [imageUrl, setImageUrl] = useState('');
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [postsData, groupsData] = await Promise.all([
+          postsAPI.getAll(),
+          groupsAPI.getAll()
+        ]);
+        const parsedPosts = postsData.map((post: any) => ({
+          ...post,
+          groupIds: typeof post.groupIds === 'string' ? JSON.parse(post.groupIds) : post.groupIds
+        }));
+        setPosts(parsedPosts);
+        setGroups(groupsData);
+      } catch (error) {
+        console.error('Fehler beim Laden der Daten:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   const handleOpenModal = (post: Post | null = null) => {
     if (post) {
@@ -57,41 +82,69 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
     }
   };
 
-  const handleSavePost = () => {
+  const handleSavePost = async () => {
     if (!title || !content) {
       alert("Bitte Titel und Inhalt ausfüllen.");
       return;
     }
 
-    if (editingPost) {
-      // Update existing post
-      setPosts(posts.map(p => p.id === editingPost.id ? { ...p, title, content, imageUrl, groupIds: selectedGroupIds } : p));
-    } else {
-      // Create new post
-      const newPost: Post = {
-        id: Date.now(),
-        title,
-        content,
-        imageUrl,
-        groupIds: selectedGroupIds,
-        author: user?.name || 'Admin',
-        date: new Date().toLocaleDateString('de-DE'),
-      };
-      setPosts([newPost, ...posts]);
-      addNotification(`Neue Elternpost: ${title}`);
+    setIsLoading(true);
+    try {
+      if (editingPost) {
+        const updated = await postsAPI.update(editingPost.id, { 
+          title, 
+          content, 
+          imageUrl, 
+          groupIds: selectedGroupIds 
+        });
+        const parsedPost = {
+          ...updated,
+          groupIds: typeof updated.groupIds === 'string' ? JSON.parse(updated.groupIds) : updated.groupIds
+        };
+        setPosts(posts.map(p => p.id === editingPost.id ? parsedPost : p));
+      } else {
+        const newPost = await postsAPI.create({
+          title,
+          content,
+          imageUrl,
+          groupIds: selectedGroupIds,
+          author: user?.name || 'Admin',
+          date: new Date().toLocaleDateString('de-DE'),
+        });
+        const parsedPost = {
+          ...newPost,
+          groupIds: typeof newPost.groupIds === 'string' ? JSON.parse(newPost.groupIds) : newPost.groupIds
+        };
+        setPosts([parsedPost, ...posts]);
+        addNotification(`Neue Elternpost: ${title}`);
+      }
+      handleCloseModal();
+    } catch (error) {
+      console.error('Fehler beim Speichern der Elternpost:', error);
+      alert('Fehler beim Speichern der Elternpost. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
     }
-    handleCloseModal();
   };
 
-  const handleDeletePost = (postId: number) => {
+  const handleDeletePost = async (postId: number) => {
     if (window.confirm("Sind Sie sicher, dass Sie diesen Beitrag löschen möchten?")) {
-      setPosts(posts.filter(p => p.id !== postId));
+      setIsLoading(true);
+      try {
+        await postsAPI.delete(postId);
+        setPosts(posts.filter(p => p.id !== postId));
+      } catch (error) {
+        console.error('Fehler beim Löschen der Elternpost:', error);
+        alert('Fehler beim Löschen der Elternpost. Bitte versuchen Sie es erneut.');
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleSelectAllGroups = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedGroupIds(MOCK_GROUPS.map(g => g.id));
+      setSelectedGroupIds(groups.map(g => g.id));
     } else {
       setSelectedGroupIds([]);
     }
@@ -114,38 +167,46 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
     );
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Elternpost</h1>
-        {user?.role === UserRole.ADMIN && (
-          <Button onClick={() => handleOpenModal()}>+ Neue Elternpost</Button>
-        )}
-      </div>
-      <div className="space-y-8">
-        {visiblePosts.map((post) => (
-          <Card key={post.id}>
-            {post.imageUrl && <img className="w-full h-56 object-cover" src={post.imageUrl} alt={post.title} />}
-            <div className="p-6">
-              <h2 className="text-2xl font-bold text-gray-800">{post.title}</h2>
-              <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
-                <span>Veröffentlicht von {post.author} am {post.date}</span>
-                {post.groupIds && post.groupIds.length > 0 && (
-                  <span className="flex items-center bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
-                    {post.groupIds.map(id => MOCK_GROUPS.find(g=>g.id === id)?.name).join(', ')}
-                  </span>
+    <>
+      <div>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Elternpost</h1>
+          {user?.role === UserRole.ADMIN && (
+            <Button onClick={() => handleOpenModal()}>+ Neue Elternpost</Button>
+          )}
+        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+          </div>
+        ) : (
+          <div className="space-y-8">
+          {visiblePosts.map((post) => (
+            <Card key={post.id}>
+              {post.imageUrl && <img className="w-full h-56 object-cover" src={post.imageUrl} alt={post.title} />}
+              <div className="p-6">
+                <h2 className="text-2xl font-bold text-gray-800">{post.title}</h2>
+                <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+                  <span>Veröffentlicht von {post.author} am {post.date}</span>
+                  {post.groupIds && post.groupIds.length > 0 && (
+                    <span className="flex items-center bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+                      {post.groupIds.map(id => groups.find(g=>g.id === id)?.name).join(', ')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-gray-700 mt-4 whitespace-pre-wrap">{post.content}</p>
+                {user?.role === UserRole.ADMIN && (
+                  <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
+                    <Button onClick={() => handleOpenModal(post)} variant="secondary">Bearbeiten</Button>
+                    <Button onClick={() => handleDeletePost(post.id)} variant="danger">Löschen</Button>
+                  </div>
                 )}
               </div>
-              <p className="text-gray-700 mt-4 whitespace-pre-wrap">{post.content}</p>
-              {user?.role === UserRole.ADMIN && (
-                <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
-                  <Button onClick={() => handleOpenModal(post)} variant="secondary">Bearbeiten</Button>
-                  <Button onClick={() => handleDeletePost(post.id)} variant="danger">Löschen</Button>
-                </div>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))}
+          </div>
+        )}
       </div>
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingPost ? 'Elternpost bearbeiten' : 'Neue Elternpost erstellen'}>
@@ -205,7 +266,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
                 <input
                   id="all-groups"
                   type="checkbox"
-                  checked={selectedGroupIds.length === MOCK_GROUPS.length}
+                  checked={selectedGroupIds.length === groups.length}
                   onChange={handleSelectAllGroups}
                   className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
                 />
@@ -214,7 +275,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
                 </label>
               </div>
               <hr className="my-2" />
-              {MOCK_GROUPS.map(group => (
+              {groups.map(group => (
                 <div key={group.id} className="flex items-center">
                   <input
                     id={`group-${group.id}`}
@@ -235,7 +296,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
           </div>
         </div>
       </Modal>
-    </div>
+    </>
   );
 };
 

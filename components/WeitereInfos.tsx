@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { MOCK_CONTACTS, MOCK_MENU_URL } from '../constants';
+import { MOCK_MENU_URL } from '../constants';
 import type { Contact } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
+import { contactsAPI } from '../lib/client';
 
 const WeitereInfos: React.FC = () => {
     const { user } = useAuth();
-    const [contacts, setContacts] = useState<Contact[]>(MOCK_CONTACTS);
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
     const [menuUrl, setMenuUrl] = useState<string>(MOCK_MENU_URL);
 
     // Modal and form state
@@ -22,6 +24,21 @@ const WeitereInfos: React.FC = () => {
     const [formPhone, setFormPhone] = useState('');
     const [formEmail, setFormEmail] = useState('');
     const [formMenuUrl, setFormMenuUrl] = useState(menuUrl);
+
+    useEffect(() => {
+        const loadContacts = async () => {
+            setIsLoading(true);
+            try {
+                const data = await contactsAPI.getAll();
+                setContacts(data);
+            } catch (error) {
+                console.error('Fehler beim Laden der Kontakte:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadContacts();
+    }, []);
 
     const handleOpenContactModal = (contact: Contact | null = null) => {
         if (contact) {
@@ -45,24 +62,52 @@ const WeitereInfos: React.FC = () => {
         setEditingContact(null);
     };
     
-    const handleSaveContact = () => {
+    const handleSaveContact = async () => {
         if (!formName || !formRole) {
             alert('Bitte Name und Rolle ausfüllen.');
             return;
         }
 
-        if (editingContact) {
-            setContacts(contacts.map(c => c.id === editingContact.id ? { ...c, name: formName, role: formRole, phone: formPhone, email: formEmail } : c));
-        } else {
-            const newContact: Contact = { id: Date.now(), name: formName, role: formRole, phone: formPhone, email: formEmail };
-            setContacts([...contacts, newContact]);
+        setIsLoading(true);
+        try {
+            if (editingContact) {
+                const updated = await contactsAPI.update(editingContact.id, {
+                    name: formName,
+                    role: formRole,
+                    phone: formPhone,
+                    email: formEmail
+                });
+                setContacts(contacts.map(c => c.id === editingContact.id ? updated : c));
+            } else {
+                const newContact = await contactsAPI.create({
+                    name: formName,
+                    role: formRole,
+                    phone: formPhone,
+                    email: formEmail
+                });
+                setContacts([...contacts, newContact]);
+            }
+            handleCloseContactModal();
+        } catch (error) {
+            console.error('Fehler beim Speichern des Kontakts:', error);
+            alert('Fehler beim Speichern des Kontakts. Bitte versuchen Sie es erneut.');
+        } finally {
+            setIsLoading(false);
         }
-        handleCloseContactModal();
     };
 
-    const handleDeleteContact = (contactId: number) => {
+    const handleDeleteContact = async (contactId: number) => {
         if (window.confirm("Sind Sie sicher, dass Sie diesen Kontakt löschen möchten?")) {
-            setContacts(contacts.filter(c => c.id !== contactId));
+            setIsLoading(true);
+            try {
+                await contactsAPI.delete(contactId);
+                setContacts(contacts.filter(c => c.id !== contactId));
+            } catch (error) {
+                console.error('Fehler beim Löschen des Kontakts:', error);
+                alert('Fehler beim Löschen des Kontakts. Bitte versuchen Sie es erneut.');
+            } finally {
+                setIsLoading(false);
+            }
         }
     };
 
@@ -72,12 +117,13 @@ const WeitereInfos: React.FC = () => {
     };
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Weitere Infos</h1>
-            </div>
+        <>
+            <div>
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-3xl font-bold text-gray-800">Weitere Infos</h1>
+                </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Contacts Card */}
                 <Card>
                     <div className="p-6">
@@ -88,7 +134,12 @@ const WeitereInfos: React.FC = () => {
                             )}
                         </div>
                         <div className="mt-4 space-y-4">
-                            {contacts.map(contact => (
+                            {isLoading ? (
+                                <div className="flex justify-center py-8">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+                                </div>
+                            ) : contacts.length > 0 ? (
+                                contacts.map(contact => (
                                 <div key={contact.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-start">
                                     <div>
                                         <p className="font-semibold text-gray-900">{contact.name}</p>
@@ -119,7 +170,10 @@ const WeitereInfos: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p className="text-gray-500 text-center py-4">Keine Kontakte vorhanden.</p>
+                            )}
                         </div>
                     </div>
                 </Card>
@@ -147,6 +201,7 @@ const WeitereInfos: React.FC = () => {
                         </div>
                     </div>
                 </Card>
+                </div>
             </div>
             
             {/* Contact Modal */}
@@ -186,7 +241,7 @@ const WeitereInfos: React.FC = () => {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </>
     );
 };
 

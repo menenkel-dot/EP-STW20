@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { View } from '../types';
-import { MOCK_POSTS, MOCK_EVENTS, MOCK_GROUPS } from '../constants';
+import type { View, Post, Event } from '../types';
 import Card from './Card';
 import { UserRole } from '../types';
 import { useAuth } from '../hooks/useAuth';
@@ -8,8 +7,17 @@ import Button from './Button';
 
 // --- Widget Components (Extracted from original render) ---
 
-const LatestPostWidget: React.FC<{ setActiveView: (view: View) => void }> = ({ setActiveView }) => {
-  const latestPost = MOCK_POSTS[0];
+const LatestPostWidget: React.FC<{ latestPost: Post | null, setActiveView: (view: View) => void }> = ({ latestPost, setActiveView }) => {
+  if (!latestPost) {
+    return (
+      <Card className="h-full">
+        <div className="p-6">
+          <h2 className="text-sm font-semibold text-cyan-600 uppercase tracking-wide">Neueste Elternpost</h2>
+          <p className="text-gray-500 mt-4">Keine Beiträge vorhanden</p>
+        </div>
+      </Card>
+    );
+  }
   return (
     <Card onClick={() => setActiveView('elternpost')} className="hover:scale-105 h-full">
       <div className="p-6">
@@ -24,8 +32,17 @@ const LatestPostWidget: React.FC<{ setActiveView: (view: View) => void }> = ({ s
   );
 };
 
-const UpcomingEventWidget: React.FC<{ setActiveView: (view: View) => void }> = ({ setActiveView }) => {
-  const upcomingEvent = MOCK_EVENTS[0];
+const UpcomingEventWidget: React.FC<{ upcomingEvent: Event | null, setActiveView: (view: View) => void }> = ({ upcomingEvent, setActiveView }) => {
+  if (!upcomingEvent) {
+    return (
+      <Card className="h-full">
+        <div className="p-6">
+          <h2 className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Nächste Veranstaltung</h2>
+          <p className="text-gray-500 mt-4">Keine Veranstaltungen geplant</p>
+        </div>
+      </Card>
+    );
+  }
   return (
     <Card onClick={() => setActiveView('veranstaltungen')} className="hover:scale-105 h-full">
       <div className="p-6">
@@ -92,6 +109,9 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [widgetOrder, setWidgetOrder] = useState<string[]>(DEFAULT_ORDER);
   const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>(DEFAULT_VISIBILITY);
+  const [latestPost, setLatestPost] = useState<Post | null>(null);
+  const [upcomingEvent, setUpcomingEvent] = useState<Event | null>(null);
+  const [groups, setGroups] = useState<any[]>([]);
   const draggedWidgetId = useRef<string | null>(null);
   
   useEffect(() => {
@@ -117,6 +137,48 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const [postsModule, eventsModule, groupsModule] = await Promise.all([
+          import('../lib/client').then(m => m.postsAPI.getAll()),
+          import('../lib/client').then(m => m.eventsAPI.getAll()),
+          import('../lib/client').then(m => m.groupsAPI.getAll())
+        ]);
+        
+        const parsedPosts = postsModule.map((post: any) => ({
+          ...post,
+          groupIds: typeof post.groupIds === 'string' ? JSON.parse(post.groupIds) : post.groupIds
+        }));
+        const parsedEvents = eventsModule.map((event: any) => ({
+          ...event,
+          groupIds: typeof event.groupIds === 'string' ? JSON.parse(event.groupIds) : event.groupIds
+        }));
+
+        const visiblePosts = user?.role === UserRole.ADMIN 
+          ? parsedPosts 
+          : parsedPosts.filter((post: any) => 
+              !post.groupIds || post.groupIds.length === 0 || (activeChild && post.groupIds.includes(activeChild.groupId))
+          );
+        const visibleEvents = user?.role === UserRole.ADMIN 
+          ? parsedEvents 
+          : parsedEvents.filter((event: any) => 
+              !event.groupIds || event.groupIds.length === 0 || (activeChild && event.groupIds.includes(activeChild.groupId))
+          );
+
+        setLatestPost(visiblePosts[0] || null);
+        setUpcomingEvent(visibleEvents[0] || null);
+        setGroups(groupsModule);
+      } catch (error) {
+        console.error('Fehler beim Laden der Dashboard-Daten:', error);
+      }
+    };
+    
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user, activeChild]);
 
   const saveLayout = (order: string[], visibility: Record<string, boolean>) => {
     if (user && user.role === UserRole.PARENT) {
@@ -171,7 +233,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
   }
 
   const getGroupName = (groupId: number): string => {
-    return MOCK_GROUPS.find(g => g.id === groupId)?.name || 'Unbekannte Gruppe';
+    return groups.find((g: any) => g.id === groupId)?.name || 'Unbekannte Gruppe';
   }
 
   const greeting = `Willkommen zurück, ${user.name}!`;
@@ -180,8 +242,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
     : `Sie sind als Administrator angemeldet.`;
 
   const widgets = {
-    latestPost: <LatestPostWidget setActiveView={setActiveView} />,
-    upcomingEvent: <UpcomingEventWidget setActiveView={setActiveView} />,
+    latestPost: <LatestPostWidget latestPost={latestPost} setActiveView={setActiveView} />,
+    upcomingEvent: <UpcomingEventWidget upcomingEvent={upcomingEvent} setActiveView={setActiveView} />,
     quickActions: <QuickActionsWidget setActiveView={setActiveView} />,
   };
   

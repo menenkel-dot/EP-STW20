@@ -1,17 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { MOCK_HOLIDAY_PERIODS, MOCK_HOLIDAY_CARE_BOOKINGS, MOCK_USERS, MOCK_GROUPS } from '../constants';
-import type { HolidayCareBooking, HolidayPeriod, Child, User } from '../types';
+import type { HolidayCareBooking, HolidayPeriod, Child, Group } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
+import { holidayPeriodsAPI, holidayBookingsAPI, childrenAPI, groupsAPI } from '../lib/client';
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-const allChildren: Child[] = MOCK_USERS.flatMap(user => user.children);
-const getChildById = (childId: number): Child | undefined => allChildren.find(c => c.id === childId);
-const getGroupName = (groupId: number): string => MOCK_GROUPS.find(g => g.id === groupId)?.name || 'N/A';
 
 interface FeriendienstProps {
   addNotification: (message: string) => void;
@@ -19,8 +15,14 @@ interface FeriendienstProps {
 
 const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
   const { user, activeChild } = useAuth();
-  const [periods, setPeriods] = useState<HolidayPeriod[]>(MOCK_HOLIDAY_PERIODS);
-  const [bookings, setBookings] = useState<HolidayCareBooking[]>(MOCK_HOLIDAY_CARE_BOOKINGS);
+  const [periods, setPeriods] = useState<HolidayPeriod[]>([]);
+  const [bookings, setBookings] = useState<HolidayCareBooking[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const getChildById = (childId: number): Child | undefined => children.find(c => c.id === childId);
+  const getGroupName = (groupId: number): string => groups.find(g => g.id === groupId)?.name || 'N/A';
 
   // Admin state
   const [selectedPeriod, setSelectedPeriod] = useState<HolidayPeriod | null>(null);
@@ -37,7 +39,6 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
   const [filterBedarf, setFilterBedarf] = useState('all');
   const [filterMittagessen, setFilterMittagessen] = useState('all');
 
-
   // Parent state
   const [editingBooking, setEditingBooking] = useState<HolidayCareBooking | null>(null);
   const [formNeedsCare, setFormNeedsCare] = useState<boolean | null>(null);
@@ -46,6 +47,39 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
   const [formFromTime, setFormFromTime] = useState('08:00');
   const [formToTime, setFormToTime] = useState('14:00');
   const [formWithLunch, setFormWithLunch] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const periodsData = await holidayPeriodsAPI.getAll();
+        setPeriods(periodsData);
+
+        if (user?.role === UserRole.ADMIN) {
+          const [bookingsData, childrenData, groupsData] = await Promise.all([
+            holidayBookingsAPI.getAll(),
+            childrenAPI.getAll(),
+            groupsAPI.getAll()
+          ]);
+          setBookings(bookingsData);
+          setChildren(childrenData);
+          setGroups(groupsData);
+        } else if (activeChild) {
+          const [bookingsData, groupsData] = await Promise.all([
+            holidayBookingsAPI.getByChildId(activeChild.id),
+            groupsAPI.getAll()
+          ]);
+          setBookings(bookingsData);
+          setGroups(groupsData);
+        }
+      } catch (error) {
+        console.error('Fehler beim Laden der Feriendienst-Daten:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [user, activeChild]);
 
   const handleOpenPeriodModal = (period: HolidayPeriod | null = null) => {
     if (period) {
@@ -64,47 +98,65 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     setPeriodModalOpen(true);
   };
 
-  const handleSavePeriod = () => {
+  const handleSavePeriod = async () => {
     if (!newPeriodName || !newPeriodStart || !newPeriodEnd || !newPeriodDeadline) {
       alert('Bitte alle Felder ausfüllen.');
       return;
     }
 
-    if (editingPeriod) {
-        setPeriods(periods.map(p => 
-            p.id === editingPeriod.id 
-            ? { ...p, name: newPeriodName, startDate: newPeriodStart, endDate: newPeriodEnd, deadline: newPeriodDeadline } 
-            : p
-        ));
-    } else {
-        const newPeriod: HolidayPeriod = {
-          id: Date.now(),
+    setIsLoading(true);
+    try {
+      if (editingPeriod) {
+        const updated = await holidayPeriodsAPI.update(editingPeriod.id, {
+          name: newPeriodName,
+          startDate: newPeriodStart,
+          endDate: newPeriodEnd,
+          deadline: newPeriodDeadline
+        });
+        setPeriods(periods.map(p => p.id === editingPeriod.id ? updated : p));
+      } else {
+        const newPeriod = await holidayPeriodsAPI.create({
           name: newPeriodName,
           startDate: newPeriodStart,
           endDate: newPeriodEnd,
           deadline: newPeriodDeadline,
-        };
+        });
         setPeriods([newPeriod, ...periods]);
-    }
+      }
 
-    setPeriodModalOpen(false);
-    setEditingPeriod(null);
-    setNewPeriodName('');
-    setNewPeriodStart('');
-    setNewPeriodEnd('');
-    setNewPeriodDeadline('');
+      setPeriodModalOpen(false);
+      setEditingPeriod(null);
+      setNewPeriodName('');
+      setNewPeriodStart('');
+      setNewPeriodEnd('');
+      setNewPeriodDeadline('');
+    } catch (error) {
+      console.error('Fehler beim Speichern des Zeitraums:', error);
+      alert('Fehler beim Speichern des Zeitraums. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeletePeriod = (periodId: number) => {
+  const handleDeletePeriod = async (periodId: number) => {
       const periodHasBookings = bookings.some(b => b.periodId === periodId);
       if (periodHasBookings) {
           alert('Dieser Zeitraum kann nicht gelöscht werden, da bereits Buchungen dafür existieren.');
           return;
       }
       if (window.confirm('Sind Sie sicher, dass Sie diesen Ferienzeitraum löschen möchten?')) {
-          setPeriods(periods.filter(p => p.id !== periodId));
-          if (selectedPeriod?.id === periodId) {
-              setSelectedPeriod(null);
+          setIsLoading(true);
+          try {
+            await holidayPeriodsAPI.delete(periodId);
+            setPeriods(periods.filter(p => p.id !== periodId));
+            if (selectedPeriod?.id === periodId) {
+                setSelectedPeriod(null);
+            }
+          } catch (error) {
+            console.error('Fehler beim Löschen des Zeitraums:', error);
+            alert('Fehler beim Löschen des Zeitraums. Bitte versuchen Sie es erneut.');
+          } finally {
+            setIsLoading(false);
           }
       }
   };
@@ -113,7 +165,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     if (!activeChild) return;
     const existingBooking = bookings.find(b => b.childId === activeChild.id && b.periodId === period.id);
     const newEditingBooking: HolidayCareBooking = existingBooking || {
-      id: 0, // 0 indicates a new booking
+      id: 0,
       childId: activeChild.id,
       periodId: period.id,
       needsCare: false
@@ -127,42 +179,52 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     setFormWithLunch(newEditingBooking.withLunch || false);
   };
 
-  const handleSaveBooking = () => {
+  const handleSaveBooking = async () => {
     if (!editingBooking || formNeedsCare === null) return;
 
-    let finalBooking: HolidayCareBooking;
+    let bookingData: any = {
+      periodId: editingBooking.periodId,
+      childId: editingBooking.childId,
+      needsCare: formNeedsCare,
+    };
 
     if (formNeedsCare) {
       if (!formFromDate || !formToDate || !formFromTime || !formToTime) {
         alert('Bitte geben Sie den genauen Betreuungszeitraum an.');
         return;
       }
-      finalBooking = {
-        ...editingBooking,
-        needsCare: true,
-        bookedFromDate: formFromDate,
-        bookedToDate: formToDate,
-        bookedFromTime: formFromTime,
-        bookedToTime: formToTime,
+      bookingData = {
+        ...bookingData,
+        fromDate: formFromDate,
+        toDate: formToDate,
+        fromTime: formFromTime,
+        toTime: formToTime,
         withLunch: formWithLunch,
       };
-    } else {
-      finalBooking = { ...editingBooking, needsCare: false };
     }
 
-    if (editingBooking.id === 0) { // New booking
-      finalBooking.id = Date.now();
-      setBookings([...bookings, finalBooking]);
-    } else { // Update existing
-      setBookings(bookings.map(b => b.id === finalBooking.id ? finalBooking : b));
-    }
-    
-    const period = periods.find(p => p.id === editingBooking.periodId);
-    if(activeChild && period){
-      addNotification(`Feriendienst-Buchung für ${activeChild.name} (${period.name}) wurde gespeichert.`);
-    }
+    setIsLoading(true);
+    try {
+      if (editingBooking.id === 0) {
+        const newBooking = await holidayBookingsAPI.create(bookingData);
+        setBookings([...bookings, newBooking]);
+      } else {
+        const updated = await holidayBookingsAPI.update(editingBooking.id, bookingData);
+        setBookings(bookings.map(b => b.id === editingBooking.id ? updated : b));
+      }
+      
+      const period = periods.find(p => p.id === editingBooking.periodId);
+      if(activeChild && period){
+        addNotification(`Feriendienst-Buchung für ${activeChild.name} (${period.name}) wurde gespeichert.`);
+      }
 
-    setEditingBooking(null);
+      setEditingBooking(null);
+    } catch (error) {
+      console.error('Fehler beim Speichern der Buchung:', error);
+      alert('Fehler beim Speichern der Buchung. Bitte versuchen Sie es erneut.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredBookings = useMemo(() => {
@@ -203,112 +265,120 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
         <Button onClick={() => handleOpenPeriodModal()}>+ Neuer Zeitraum</Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {periods.map(p => (
-          <Card key={p.id} onClick={() => setSelectedPeriod(p)} className={`hover:bg-cyan-50 flex flex-col ${selectedPeriod?.id === p.id ? 'ring-2 ring-cyan-500' : ''}`}>
-            <div className="p-6 flex-grow">
-              <h2 className="text-xl font-bold text-gray-800">{p.name}</h2>
-              <p className="text-gray-600">{formatDate(p.startDate)} - {formatDate(p.endDate)}</p>
-              <p className="text-sm text-red-600 mt-1">Anmeldefrist: {formatDate(p.deadline)}</p>
-            </div>
-             <div className="p-4 bg-gray-50 border-t flex justify-end space-x-2">
-                <Button onClick={(e) => { e.stopPropagation(); handleOpenPeriodModal(p); }} variant="secondary">Bearbeiten</Button>
-                <Button onClick={(e) => { e.stopPropagation(); handleDeletePeriod(p.id); }} variant="danger">Löschen</Button>
-            </div>
-          </Card>
-        ))}
-      </div>
-      
-      {selectedPeriod && (
-        <div className="mt-8">
-           <h2 className="text-2xl font-bold text-gray-800 mb-4">Buchungen für: {selectedPeriod.name}</h2>
-            {/* Filter Section */}
-           <div className="mb-4 p-4 bg-gray-50 rounded-lg flex flex-wrap items-end gap-4 border">
-              <div>
-                <label htmlFor="filter-name" className="block text-sm font-medium text-gray-700">Name des Kindes</label>
-                <input type="text" id="filter-name" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Suchen..." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"/>
-              </div>
-              <div>
-                <label htmlFor="filter-group" className="block text-sm font-medium text-gray-700">Gruppe</label>
-                <select id="filter-group" value={filterGruppe} onChange={e => setFilterGruppe(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
-                    <option value="all">Alle Gruppen</option>
-                    {MOCK_GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="filter-bedarf" className="block text-sm font-medium text-gray-700">Bedarf</label>
-                <select id="filter-bedarf" value={filterBedarf} onChange={e => setFilterBedarf(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
-                    <option value="all">Alle</option>
-                    <option value="yes">Ja</option>
-                    <option value="no">Nein</option>
-                </select>
-              </div>
-               <div>
-                <label htmlFor="filter-mittagessen" className="block text-sm font-medium text-gray-700">Mittagessen</label>
-                <select id="filter-mittagessen" value={filterMittagessen} onChange={e => setFilterMittagessen(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
-                    <option value="all">Alle</option>
-                    <option value="yes">Ja</option>
-                    <option value="no">Nein</option>
-                </select>
-              </div>
-              <div>
-                <Button onClick={resetFilters} variant="secondary">Filter zurücksetzen</Button>
-              </div>
-           </div>
-           <Card>
-             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind (Gruppe)</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bedarf</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uhrzeit</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mittagessen</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredBookings.length > 0 ? filteredBookings.map(b => {
-                    const child = getChildById(b.childId);
-                    const groupName = child ? getGroupName(child.groupId) : 'N/A';
-                    return (
-                      <tr key={b.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {child?.name || 'Unbekanntes Kind'}
-                          <span className="ml-1 text-gray-500">({groupName})</span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {b.needsCare ? 
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ja</span> : 
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Nein</span>}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${formatDate(b.bookedFromDate!)} - ${formatDate(b.bookedToDate!)}` : '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${b.bookedFromTime} - ${b.bookedToTime}` : '-'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? (b.withLunch ? 'Ja' : 'Nein') : '-'}</td>
-                      </tr>
-                    );
-                  }) : (
-                    <tr>
-                      <td colSpan={5} className="text-center py-10 text-gray-500">
-                        Keine Buchungen für die aktuellen Filter gefunden.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-             </div>
-           </Card>
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {periods.map(p => (
+              <Card key={p.id} onClick={() => setSelectedPeriod(p)} className={`hover:bg-cyan-50 flex flex-col ${selectedPeriod?.id === p.id ? 'ring-2 ring-cyan-500' : ''}`}>
+                <div className="p-6 flex-grow">
+                  <h2 className="text-xl font-bold text-gray-800">{p.name}</h2>
+                  <p className="text-gray-600">{formatDate(p.startDate)} - {formatDate(p.endDate)}</p>
+                  <p className="text-sm text-red-600 mt-1">Anmeldefrist: {formatDate(p.deadline)}</p>
+                </div>
+                <div className="p-4 bg-gray-50 border-t flex justify-end space-x-2">
+                  <Button onClick={(e) => { e.stopPropagation(); handleOpenPeriodModal(p); }} variant="secondary">Bearbeiten</Button>
+                  <Button onClick={(e) => { e.stopPropagation(); handleDeletePeriod(p.id); }} variant="danger">Löschen</Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        
+          {selectedPeriod && (
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">Buchungen für: {selectedPeriod.name}</h2>
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg flex flex-wrap items-end gap-4 border">
+                <div>
+                  <label htmlFor="filter-name" className="block text-sm font-medium text-gray-700">Name des Kindes</label>
+                  <input type="text" id="filter-name" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Suchen..." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"/>
+                </div>
+                <div>
+                  <label htmlFor="filter-group" className="block text-sm font-medium text-gray-700">Gruppe</label>
+                  <select id="filter-group" value={filterGruppe} onChange={e => setFilterGruppe(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                    <option value="all">Alle Gruppen</option>
+                    {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="filter-bedarf" className="block text-sm font-medium text-gray-700">Bedarf</label>
+                  <select id="filter-bedarf" value={filterBedarf} onChange={e => setFilterBedarf(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                    <option value="all">Alle</option>
+                    <option value="yes">Ja</option>
+                    <option value="no">Nein</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="filter-mittagessen" className="block text-sm font-medium text-gray-700">Mittagessen</label>
+                  <select id="filter-mittagessen" value={filterMittagessen} onChange={e => setFilterMittagessen(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                    <option value="all">Alle</option>
+                    <option value="yes">Ja</option>
+                    <option value="no">Nein</option>
+                  </select>
+                </div>
+                <div>
+                  <Button onClick={resetFilters} variant="secondary">Filter zurücksetzen</Button>
+                </div>
+              </div>
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind (Gruppe)</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bedarf</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uhrzeit</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mittagessen</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredBookings.length > 0 ? filteredBookings.map(b => {
+                        const child = getChildById(b.childId);
+                        const groupName = child ? getGroupName(child.groupId) : 'N/A';
+                        return (
+                          <tr key={b.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {child?.name || 'Unbekanntes Kind'}
+                              <span className="ml-1 text-gray-500">({groupName})</span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              {b.needsCare ? 
+                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ja</span> : 
+                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Nein</span>}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${formatDate(b.bookedFromDate!)} - ${formatDate(b.bookedToDate!)}` : '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${b.bookedFromTime} - ${b.bookedToTime}` : '-'}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? (b.withLunch ? 'Ja' : 'Nein') : '-'}</td>
+                          </tr>
+                        );
+                      }) : (
+                        <tr>
+                          <td colSpan={5} className="text-center py-10 text-gray-500">
+                            Keine Buchungen für die aktuellen Filter gefunden.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+        </>
       )}
+
       <Modal isOpen={isPeriodModalOpen} onClose={() => setPeriodModalOpen(false)} title={editingPeriod ? 'Zeitraum bearbeiten' : 'Neuen Ferienzeitraum erstellen'}>
         <div className="space-y-4">
-            <div><label className="block text-sm font-medium text-gray-700">Name</label><input type="text" value={newPeriodName} onChange={e => setNewPeriodName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><label className="block text-sm font-medium text-gray-700">Startdatum</label><input type="date" value={newPeriodStart} onChange={e => setNewPeriodStart(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-              <div><label className="block text-sm font-medium text-gray-700">Enddatum</label><input type="date" value={newPeriodEnd} onChange={e => setNewPeriodEnd(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-            </div>
-            <div><label className="block text-sm font-medium text-gray-700">Anmeldefrist</label><input type="date" value={newPeriodDeadline} onChange={e => setNewPeriodDeadline(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-            <div className="flex justify-end pt-4"><Button onClick={handleSavePeriod}>{editingPeriod ? 'Änderungen speichern' : 'Erstellen'}</Button></div>
+          <div><label className="block text-sm font-medium text-gray-700">Name</label><input type="text" value={newPeriodName} onChange={e => setNewPeriodName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="block text-sm font-medium text-gray-700">Startdatum</label><input type="date" value={newPeriodStart} onChange={e => setNewPeriodStart(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+            <div><label className="block text-sm font-medium text-gray-700">Enddatum</label><input type="date" value={newPeriodEnd} onChange={e => setNewPeriodEnd(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+          </div>
+          <div><label className="block text-sm font-medium text-gray-700">Anmeldefrist</label><input type="date" value={newPeriodDeadline} onChange={e => setNewPeriodDeadline(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+          <div className="flex justify-end pt-4"><Button onClick={handleSavePeriod}>{editingPeriod ? 'Änderungen speichern' : 'Erstellen'}</Button></div>
         </div>
       </Modal>
     </div>
@@ -323,81 +393,87 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
       <div>
         <h1 className="text-3xl font-bold text-gray-800">Feriendienst für {activeChild.name}</h1>
         <p className="mt-2 text-gray-600">Melden Sie hier Ihren Betreuungsbedarf für die Ferien an.</p>
-        <div className="space-y-6 mt-8">
-          {periods.map(period => {
-            const booking = bookings.find(b => b.childId === activeChild.id && b.periodId === period.id);
-            const isEditingThis = editingBooking?.periodId === period.id;
-            const deadlinePassed = new Date(period.deadline) < new Date();
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+          </div>
+        ) : (
+          <div className="space-y-6 mt-8">
+            {periods.map(period => {
+              const booking = bookings.find(b => b.childId === activeChild.id && b.periodId === period.id);
+              const isEditingThis = editingBooking?.periodId === period.id;
+              const deadlinePassed = new Date(period.deadline) < new Date();
 
-            if (isEditingThis) {
+              if (isEditingThis) {
+                return (
+                  <Card key={period.id}>
+                    <div className="p-6">
+                      <h2 className="text-xl font-bold text-gray-800">{period.name}</h2>
+                      <p className="text-gray-600 mb-4">{formatDate(period.startDate)} - {formatDate(period.endDate)}</p>
+                      <div className="space-y-4">
+                        <p className="font-semibold">Benötigen Sie Betreuung?</p>
+                        <div className="flex items-center space-x-4">
+                          <label className="flex items-center"><input type="radio" name={`needsCare-${period.id}`} checked={formNeedsCare === true} onChange={() => setFormNeedsCare(true)} className="form-radio h-4 w-4 text-cyan-600"/> <span className="ml-2">Ja</span></label>
+                          <label className="flex items-center"><input type="radio" name={`needsCare-${period.id}`} checked={formNeedsCare === false} onChange={() => setFormNeedsCare(false)} className="form-radio h-4 w-4 text-cyan-600"/> <span className="ml-2">Nein</span></label>
+                        </div>
+
+                        {formNeedsCare && (
+                          <div className="p-4 bg-gray-50 rounded-lg space-y-4 border">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div><label className="block text-sm font-medium text-gray-700">Von Datum</label><input type="date" value={formFromDate} onChange={e => setFormFromDate(e.target.value)} min={period.startDate} max={period.endDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+                              <div><label className="block text-sm font-medium text-gray-700">Bis Datum</label><input type="date" value={formToDate} onChange={e => setFormToDate(e.target.value)} min={period.startDate} max={period.endDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div><label className="block text-sm font-medium text-gray-700">Von Uhrzeit</label><input type="time" value={formFromTime} onChange={e => setFormFromTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+                              <div><label className="block text-sm font-medium text-gray-700">Bis Uhrzeit</label><input type="time" value={formToTime} onChange={e => setFormToTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
+                            </div>
+                            <div className="flex items-center"><input id={`lunch-${period.id}`} type="checkbox" checked={formWithLunch} onChange={e => setFormWithLunch(e.target.checked)} className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"/> <label htmlFor={`lunch-${period.id}`} className="ml-2 block text-sm text-gray-900">Mit Mittagessen</label></div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
+                        <Button onClick={() => setEditingBooking(null)} variant="secondary">Abbrechen</Button>
+                        <Button onClick={handleSaveBooking}>Speichern</Button>
+                      </div>
+                    </div>
+                  </Card>
+                )
+              }
+
               return (
                 <Card key={period.id}>
                   <div className="p-6">
-                    <h2 className="text-xl font-bold text-gray-800">{period.name}</h2>
-                    <p className="text-gray-600 mb-4">{formatDate(period.startDate)} - {formatDate(period.endDate)}</p>
-                    <div className="space-y-4">
-                      <p className="font-semibold">Benötigen Sie Betreuung?</p>
-                      <div className="flex items-center space-x-4">
-                        <label className="flex items-center"><input type="radio" name={`needsCare-${period.id}`} checked={formNeedsCare === true} onChange={() => setFormNeedsCare(true)} className="form-radio h-4 w-4 text-cyan-600"/> <span className="ml-2">Ja</span></label>
-                        <label className="flex items-center"><input type="radio" name={`needsCare-${period.id}`} checked={formNeedsCare === false} onChange={() => setFormNeedsCare(false)} className="form-radio h-4 w-4 text-cyan-600"/> <span className="ml-2">Nein</span></label>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-800">{period.name}</h2>
+                        <p className="text-gray-600">{formatDate(period.startDate)} - {formatDate(period.endDate)}</p>
+                        <p className={`text-sm mt-1 font-semibold ${deadlinePassed ? 'text-gray-500' : 'text-red-600'}`}>Anmeldefrist: {formatDate(period.deadline)}</p>
                       </div>
-
-                      {formNeedsCare && (
-                        <div className="p-4 bg-gray-50 rounded-lg space-y-4 border">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="block text-sm font-medium text-gray-700">Von Datum</label><input type="date" value={formFromDate} onChange={e => setFormFromDate(e.target.value)} min={period.startDate} max={period.endDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-                            <div><label className="block text-sm font-medium text-gray-700">Bis Datum</label><input type="date" value={formToDate} onChange={e => setFormToDate(e.target.value)} min={period.startDate} max={period.endDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div><label className="block text-sm font-medium text-gray-700">Von Uhrzeit</label><input type="time" value={formFromTime} onChange={e => setFormFromTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-                            <div><label className="block text-sm font-medium text-gray-700">Bis Uhrzeit</label><input type="time" value={formToTime} onChange={e => setFormToTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-                          </div>
-                           <div className="flex items-center"><input id={`lunch-${period.id}`} type="checkbox" checked={formWithLunch} onChange={e => setFormWithLunch(e.target.checked)} className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"/> <label htmlFor={`lunch-${period.id}`} className="ml-2 block text-sm text-gray-900">Mit Mittagessen</label></div>
-                        </div>
-                      )}
+                      {!deadlinePassed && <Button onClick={() => startEditingBooking(period)}>{booking ? 'Bearbeiten' : 'Anmelden'}</Button>}
                     </div>
-                    <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
-                      <Button onClick={() => setEditingBooking(null)} variant="secondary">Abbrechen</Button>
-                      <Button onClick={handleSaveBooking}>Speichern</Button>
+                    <div className="mt-4 pt-4 border-t">
+                      {booking ? (
+                        booking.needsCare ? (
+                          <div>
+                            <p className="font-semibold text-green-700">Betreuung gebucht</p>
+                            <p className="text-sm text-gray-600">Zeitraum: {formatDate(booking.bookedFromDate!)} bis {formatDate(booking.bookedToDate!)}</p>
+                            <p className="text-sm text-gray-600">Uhrzeit: {booking.bookedFromTime} bis {booking.bookedToTime}</p>
+                            <p className="text-sm text-gray-600">Mittagessen: {booking.withLunch ? 'Ja' : 'Nein'}</p>
+                          </div>
+                        ) : (
+                          <p className="font-semibold text-red-700">Keine Betreuung benötigt.</p>
+                        )
+                      ) : (
+                        <p className="text-gray-500 italic">Noch keine Rückmeldung für diesen Zeitraum abgegeben.</p>
+                      )}
+                      {deadlinePassed && !booking && <p className="text-red-600 font-semibold mt-2">Die Anmeldefrist ist abgelaufen.</p>}
                     </div>
                   </div>
                 </Card>
               )
-            }
-
-            return (
-              <Card key={period.id}>
-                <div className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                       <h2 className="text-xl font-bold text-gray-800">{period.name}</h2>
-                       <p className="text-gray-600">{formatDate(period.startDate)} - {formatDate(period.endDate)}</p>
-                       <p className={`text-sm mt-1 font-semibold ${deadlinePassed ? 'text-gray-500' : 'text-red-600'}`}>Anmeldefrist: {formatDate(period.deadline)}</p>
-                    </div>
-                    {!deadlinePassed && <Button onClick={() => startEditingBooking(period)}>{booking ? 'Bearbeiten' : 'Anmelden'}</Button>}
-                  </div>
-                  <div className="mt-4 pt-4 border-t">
-                    {booking ? (
-                      booking.needsCare ? (
-                        <div>
-                          <p className="font-semibold text-green-700">Betreuung gebucht</p>
-                          <p className="text-sm text-gray-600">Zeitraum: {formatDate(booking.bookedFromDate!)} bis {formatDate(booking.bookedToDate!)}</p>
-                          <p className="text-sm text-gray-600">Uhrzeit: {booking.bookedFromTime} bis {booking.bookedToTime}</p>
-                          <p className="text-sm text-gray-600">Mittagessen: {booking.withLunch ? 'Ja' : 'Nein'}</p>
-                        </div>
-                      ) : (
-                        <p className="font-semibold text-red-700">Keine Betreuung benötigt.</p>
-                      )
-                    ) : (
-                       <p className="text-gray-500 italic">Noch keine Rückmeldung für diesen Zeitraum abgegeben.</p>
-                    )}
-                     {deadlinePassed && !booking && <p className="text-red-600 font-semibold mt-2">Die Anmeldefrist ist abgelaufen.</p>}
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </div>
     );
   };

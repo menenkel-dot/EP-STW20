@@ -1,6 +1,13 @@
-import { users, children, groups, absences, documents, type User, type InsertUser, type Child, type InsertChild, type Group, type Absence, type Document } from "../shared/schema.js";
+import { 
+  users, children, groups, absences, documents, events, posts, holidayPeriods, holidayBookings, conversations, messages, contacts,
+  type User, type InsertUser, type Child, type InsertChild, type Group, 
+  type Absence, type InsertAbsence, type Document, type Event, type InsertEvent,
+  type Post, type InsertPost, type HolidayPeriod, type InsertHolidayPeriod,
+  type HolidayBooking, type InsertHolidayBooking, type Conversation, type InsertConversation,
+  type Message, type InsertMessage, type Contact, type InsertContact
+} from "../shared/schema.js";
 import { db } from "./db.js";
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User Operations
@@ -20,10 +27,60 @@ export interface IStorage {
   
   // Absences Operations
   getAbsencesByChildId(childId: number): Promise<Absence[]>;
+  createAbsence(insertAbsence: InsertAbsence): Promise<Absence>;
+  updateAbsence(id: number, updates: Partial<InsertAbsence>): Promise<Absence | undefined>;
+  deleteAbsence(id: number): Promise<boolean>;
   
   // Documents Operations
   getDocumentsByUserId(userId: number): Promise<Document[]>;
   getDocumentsByChildId(childId: number): Promise<Document[]>;
+  
+  // Events Operations
+  getAllEvents(): Promise<Event[]>;
+  getEvent(id: number): Promise<Event | undefined>;
+  createEvent(insertEvent: InsertEvent): Promise<Event>;
+  updateEvent(id: number, updates: Partial<InsertEvent>): Promise<Event | undefined>;
+  deleteEvent(id: number): Promise<boolean>;
+  
+  // Posts Operations
+  getAllPosts(): Promise<Post[]>;
+  getPost(id: number): Promise<Post | undefined>;
+  createPost(insertPost: InsertPost): Promise<Post>;
+  updatePost(id: number, updates: Partial<InsertPost>): Promise<Post | undefined>;
+  deletePost(id: number): Promise<boolean>;
+  
+  // Holiday Periods Operations
+  getAllHolidayPeriods(): Promise<HolidayPeriod[]>;
+  getHolidayPeriod(id: number): Promise<HolidayPeriod | undefined>;
+  createHolidayPeriod(insertPeriod: InsertHolidayPeriod): Promise<HolidayPeriod>;
+  updateHolidayPeriod(id: number, updates: Partial<InsertHolidayPeriod>): Promise<HolidayPeriod | undefined>;
+  deleteHolidayPeriod(id: number): Promise<boolean>;
+  
+  // Holiday Bookings Operations
+  getAllHolidayBookings(): Promise<HolidayBooking[]>;
+  getHolidayBookingsByPeriodId(periodId: number): Promise<HolidayBooking[]>;
+  getHolidayBookingsByChildId(childId: number): Promise<HolidayBooking[]>;
+  createHolidayBooking(insertBooking: InsertHolidayBooking): Promise<HolidayBooking>;
+  updateHolidayBooking(id: number, updates: Partial<InsertHolidayBooking>): Promise<HolidayBooking | undefined>;
+  deleteHolidayBooking(id: number): Promise<boolean>;
+  
+  // Conversations Operations
+  getConversationsByUserId(userId: number): Promise<Conversation[]>;
+  getConversation(id: number): Promise<Conversation | undefined>;
+  createConversation(insertConversation: InsertConversation): Promise<Conversation>;
+  updateConversation(id: number, lastMessageAt: Date): Promise<void>;
+  
+  // Messages Operations
+  getMessagesByConversationId(conversationId: number): Promise<Message[]>;
+  createMessage(insertMessage: InsertMessage): Promise<Message>;
+  markMessageAsRead(id: number): Promise<void>;
+  
+  // Contacts Operations
+  getAllContacts(): Promise<Contact[]>;
+  getContact(id: number): Promise<Contact | undefined>;
+  createContact(insertContact: InsertContact): Promise<Contact>;
+  updateContact(id: number, updates: Partial<InsertContact>): Promise<Contact | undefined>;
+  deleteContact(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -83,6 +140,28 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(absences).where(eq(absences.childId, childId));
   }
 
+  async createAbsence(insertAbsence: InsertAbsence): Promise<Absence> {
+    const [absence] = await db
+      .insert(absences)
+      .values(insertAbsence)
+      .returning();
+    return absence;
+  }
+
+  async updateAbsence(id: number, updates: Partial<InsertAbsence>): Promise<Absence | undefined> {
+    const [absence] = await db
+      .update(absences)
+      .set(updates)
+      .where(eq(absences.id, id))
+      .returning();
+    return absence || undefined;
+  }
+
+  async deleteAbsence(id: number): Promise<boolean> {
+    const result = await db.delete(absences).where(eq(absences.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
   // Documents Operations
   async getDocumentsByUserId(userId: number): Promise<Document[]> {
     return db.select().from(documents).where(eq(documents.userId, userId));
@@ -90,6 +169,220 @@ export class DatabaseStorage implements IStorage {
 
   async getDocumentsByChildId(childId: number): Promise<Document[]> {
     return db.select().from(documents).where(eq(documents.childId, childId));
+  }
+
+  // Events Operations
+  async getAllEvents(): Promise<Event[]> {
+    return db.select().from(events);
+  }
+
+  async getEvent(id: number): Promise<Event | undefined> {
+    const [event] = await db.select().from(events).where(eq(events.id, id));
+    return event || undefined;
+  }
+
+  async createEvent(insertEvent: InsertEvent): Promise<Event> {
+    const [event] = await db
+      .insert(events)
+      .values(insertEvent)
+      .returning();
+    return event;
+  }
+
+  async updateEvent(id: number, updates: Partial<InsertEvent>): Promise<Event | undefined> {
+    const [event] = await db
+      .update(events)
+      .set(updates)
+      .where(eq(events.id, id))
+      .returning();
+    return event || undefined;
+  }
+
+  async deleteEvent(id: number): Promise<boolean> {
+    const result = await db.delete(events).where(eq(events.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Posts Operations
+  async getAllPosts(): Promise<Post[]> {
+    return db.select().from(posts);
+  }
+
+  async getPost(id: number): Promise<Post | undefined> {
+    const [post] = await db.select().from(posts).where(eq(posts.id, id));
+    return post || undefined;
+  }
+
+  async createPost(insertPost: InsertPost): Promise<Post> {
+    const [post] = await db
+      .insert(posts)
+      .values(insertPost)
+      .returning();
+    return post;
+  }
+
+  async updatePost(id: number, updates: Partial<InsertPost>): Promise<Post | undefined> {
+    const [post] = await db
+      .update(posts)
+      .set(updates)
+      .where(eq(posts.id, id))
+      .returning();
+    return post || undefined;
+  }
+
+  async deletePost(id: number): Promise<boolean> {
+    const result = await db.delete(posts).where(eq(posts.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Holiday Periods Operations
+  async getAllHolidayPeriods(): Promise<HolidayPeriod[]> {
+    return db.select().from(holidayPeriods);
+  }
+
+  async getHolidayPeriod(id: number): Promise<HolidayPeriod | undefined> {
+    const [period] = await db.select().from(holidayPeriods).where(eq(holidayPeriods.id, id));
+    return period || undefined;
+  }
+
+  async createHolidayPeriod(insertPeriod: InsertHolidayPeriod): Promise<HolidayPeriod> {
+    const [period] = await db
+      .insert(holidayPeriods)
+      .values(insertPeriod)
+      .returning();
+    return period;
+  }
+
+  async updateHolidayPeriod(id: number, updates: Partial<InsertHolidayPeriod>): Promise<HolidayPeriod | undefined> {
+    const [period] = await db
+      .update(holidayPeriods)
+      .set(updates)
+      .where(eq(holidayPeriods.id, id))
+      .returning();
+    return period || undefined;
+  }
+
+  async deleteHolidayPeriod(id: number): Promise<boolean> {
+    const result = await db.delete(holidayPeriods).where(eq(holidayPeriods.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Holiday Bookings Operations
+  async getAllHolidayBookings(): Promise<HolidayBooking[]> {
+    return db.select().from(holidayBookings);
+  }
+
+  async getHolidayBookingsByPeriodId(periodId: number): Promise<HolidayBooking[]> {
+    return db.select().from(holidayBookings).where(eq(holidayBookings.periodId, periodId));
+  }
+
+  async getHolidayBookingsByChildId(childId: number): Promise<HolidayBooking[]> {
+    return db.select().from(holidayBookings).where(eq(holidayBookings.childId, childId));
+  }
+
+  async createHolidayBooking(insertBooking: InsertHolidayBooking): Promise<HolidayBooking> {
+    const [booking] = await db
+      .insert(holidayBookings)
+      .values(insertBooking)
+      .returning();
+    return booking;
+  }
+
+  async updateHolidayBooking(id: number, updates: Partial<InsertHolidayBooking>): Promise<HolidayBooking | undefined> {
+    const [booking] = await db
+      .update(holidayBookings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(holidayBookings.id, id))
+      .returning();
+    return booking || undefined;
+  }
+
+  async deleteHolidayBooking(id: number): Promise<boolean> {
+    const result = await db.delete(holidayBookings).where(eq(holidayBookings.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Conversations Operations
+  async getConversationsByUserId(userId: number): Promise<Conversation[]> {
+    const allConversations = await db.select().from(conversations);
+    return allConversations.filter(conv => {
+      const participantIds = JSON.parse(conv.participantIds);
+      return participantIds.includes(userId);
+    });
+  }
+
+  async getConversation(id: number): Promise<Conversation | undefined> {
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return conversation || undefined;
+  }
+
+  async createConversation(insertConversation: InsertConversation): Promise<Conversation> {
+    const [conversation] = await db
+      .insert(conversations)
+      .values(insertConversation)
+      .returning();
+    return conversation;
+  }
+
+  async updateConversation(id: number, lastMessageAt: Date): Promise<void> {
+    await db
+      .update(conversations)
+      .set({ lastMessageAt })
+      .where(eq(conversations.id, id));
+  }
+
+  // Messages Operations
+  async getMessagesByConversationId(conversationId: number): Promise<Message[]> {
+    return db.select().from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(desc(messages.timestamp));
+  }
+
+  async createMessage(insertMessage: InsertMessage): Promise<Message> {
+    const [message] = await db
+      .insert(messages)
+      .values(insertMessage)
+      .returning();
+    return message;
+  }
+
+  async markMessageAsRead(id: number): Promise<void> {
+    await db
+      .update(messages)
+      .set({ read: true })
+      .where(eq(messages.id, id));
+  }
+
+  // Contacts Operations
+  async getAllContacts(): Promise<Contact[]> {
+    return db.select().from(contacts);
+  }
+
+  async getContact(id: number): Promise<Contact | undefined> {
+    const [contact] = await db.select().from(contacts).where(eq(contacts.id, id));
+    return contact || undefined;
+  }
+
+  async createContact(insertContact: InsertContact): Promise<Contact> {
+    const [contact] = await db
+      .insert(contacts)
+      .values(insertContact)
+      .returning();
+    return contact;
+  }
+
+  async updateContact(id: number, updates: Partial<InsertContact>): Promise<Contact | undefined> {
+    const [contact] = await db
+      .update(contacts)
+      .set(updates)
+      .where(eq(contacts.id, id))
+      .returning();
+    return contact || undefined;
+  }
+
+  async deleteContact(id: number): Promise<boolean> {
+    const result = await db.delete(contacts).where(eq(contacts.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 
