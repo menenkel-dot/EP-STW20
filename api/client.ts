@@ -1,7 +1,8 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
-// API Base URL - für Replit müssen wir die REPL_SLUG verwenden
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// API Base URL - Backend läuft auf Port 3000, Frontend auf Port 5000
+// In Replit verwenden wir localhost, da beide auf demselben Host laufen
+const API_URL = '/api';
 
 // Axios Instance
 const apiClient: AxiosInstance = axios.create({

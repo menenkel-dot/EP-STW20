@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from './hooks/useAuth';
 import type { User, Notification, Child } from './types';
-import { MOCK_USERS, MOCK_NOTIFICATIONS } from './constants';
+import { MOCK_NOTIFICATIONS } from './constants';
+import { authAPI, type LoginResponse } from './api/client';
 import Login from './components/Login';
 import Layout from './components/Layout';
 
@@ -9,20 +10,92 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const login = (username: string, pass: string): boolean => {
-    const user = MOCK_USERS.find(u => u.username === username && u.password === pass);
-    if (user) {
-      setCurrentUser(user);
-      if (user.children && user.children.length > 0) {
-        setActiveChild(user.children[0]);
+  // Beim App-Start: Prüfe ob User eingeloggt ist
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem('authToken');
+      const savedUser = localStorage.getItem('user');
+
+      if (token && savedUser) {
+        try {
+          // User-Daten aus localStorage laden
+          const user = JSON.parse(savedUser) as LoginResponse['user'];
+          
+          // Konvertiere Backend-User zu Frontend-User
+          const frontendUser: User = {
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            password: '', // Passwort nicht im Frontend speichern
+            role: user.role as any,
+            avatarUrl: user.avatarUrl || '',
+            children: user.children.map(child => ({
+              id: child.id,
+              name: child.name,
+              groupId: child.groupId || 0,
+              avatarUrl: child.avatarUrl || '',
+            })),
+          };
+
+          setCurrentUser(frontendUser);
+          
+          if (frontendUser.children && frontendUser.children.length > 0) {
+            setActiveChild(frontendUser.children[0]);
+          }
+        } catch (error) {
+          console.error('Fehler beim Laden des Benutzers:', error);
+          authAPI.logout();
+        }
       }
+      
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = async (username: string, pass: string): Promise<boolean> => {
+    try {
+      const response = await authAPI.login({ username, password: pass });
+      
+      // Token speichern
+      localStorage.setItem('authToken', response.token);
+      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      // Konvertiere Backend-User zu Frontend-User
+      const frontendUser: User = {
+        id: response.user.id,
+        username: response.user.username,
+        name: response.user.name,
+        password: '', // Passwort nicht im Frontend speichern
+        role: response.user.role as any,
+        avatarUrl: response.user.avatarUrl || '',
+        children: response.user.children.map(child => ({
+          id: child.id,
+          name: child.name,
+          groupId: child.groupId || 0,
+          avatarUrl: child.avatarUrl || '',
+        })),
+      };
+
+      setCurrentUser(frontendUser);
+      
+      if (frontendUser.children && frontendUser.children.length > 0) {
+        setActiveChild(frontendUser.children[0]);
+      }
+
       return true;
+    } catch (error: any) {
+      console.error('Login fehlgeschlagen:', error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
+    authAPI.logout();
     setCurrentUser(null);
     setActiveChild(null);
   };
@@ -52,6 +125,18 @@ const App: React.FC = () => {
     logout,
     setActiveChild: handleSetActiveChild,
   }), [currentUser, activeChild]);
+
+  // Zeige Loading-Screen während Auth-Check
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Laden...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (

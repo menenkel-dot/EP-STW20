@@ -12,6 +12,12 @@ export default defineConfig(() => {
         hmr: {
           clientPort: 443,
         },
+        proxy: {
+          '/api': {
+            target: 'http://localhost:3000',
+            changeOrigin: true,
+          },
+        },
       },
       plugins: [react()],
       resolve: {
