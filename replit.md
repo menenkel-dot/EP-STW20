@@ -17,6 +17,7 @@ This is a parent portal web application for Kinderhaus St. Wolfgang, a German ch
 ### October 19, 2025 - Replit Environment Setup
 - Configured project to run in Replit environment
 - Updated Vite dev server to use port 5000 (required for Replit)
+- Added `allowedHosts: true` to Vite config to support Replit's proxy domains
 - Removed security vulnerability: API key exposure from vite.config.ts
 - Configured deployment settings for production (autoscale)
 - Set up Frontend workflow for development server
