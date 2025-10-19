@@ -15,6 +15,18 @@ This is a production-ready parent portal web application for Kinderhaus St. Wolf
 
 ## Recent Changes
 
+### October 19, 2025 - Benutzerverwaltung mit Datenbankintegration
+
+**Benutzerverwaltung Fix:**
+- Benutzerverwaltung lädt jetzt alle Benutzer aus der PostgreSQL-Datenbank
+- Neue Benutzer werden über `/api/auth/register` Backend-API erstellt
+- Neue Benutzer werden dauerhaft in der Datenbank gespeichert
+- Neue Benutzer können sich sofort nach der Erstellung anmelden
+- Hinzugefügt: `/api/users` Endpoint (nur für Admins) zum Abrufen aller Benutzer
+- Hinzugefügt: `usersAPI.getAll()` Funktion im API-Client
+- Verbessert: Loading-States und Fehlerbehandlung in der Verwaltung-Komponente
+- Behoben: Datenbanksequenz-Problem für Auto-Increment IDs
+
 ### October 19, 2025 - Production-Ready Full-Stack Implementation
 
 **Security & Authentication:**
@@ -155,6 +167,7 @@ This creates an optimized production build in the `dist/` directory.
 - `GET /api/auth/me` - Get current user info (protected)
 
 ### Data Access (all protected)
+- `GET /api/users` - Get all users (admin-only)
 - `GET /api/children` - Get children for current user
 - `GET /api/groups` - Get all groups
 - `GET /api/documents` - Get documents for current user
