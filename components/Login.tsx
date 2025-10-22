@@ -86,11 +86,6 @@ const Login: React.FC = () => {
               )}
             </button>
           </div>
-
-          <div className="text-xs text-center text-gray-500 mt-4">
-            <p className="mb-1">Test-Zugangsdaten:</p>
-            <p>Benutzername: <span className="font-mono">meier</span> | Passwort: <span className="font-mono">password</span></p>
-          </div>
         </form>
       </div>
     </div>
