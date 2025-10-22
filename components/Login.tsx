@@ -25,9 +25,75 @@ const Login: React.FC = () => {
     }
   };
 
+  const spaceElements = [
+    { emoji: '🚀', animation: 'bounce', top: '10%', left: '15%', delay: '0s', size: '2.5rem' },
+    { emoji: '🪐', animation: 'pulse', top: '20%', left: '80%', delay: '1s', size: '3rem' },
+    { emoji: '⭐', animation: 'twinkle', top: '15%', left: '50%', delay: '0.5s', size: '1.8rem' },
+    { emoji: '🌙', animation: 'float', top: '70%', left: '10%', delay: '2s', size: '2.8rem' },
+    { emoji: '🛸', animation: 'bounce', top: '60%', left: '85%', delay: '1.5s', size: '2.2rem' },
+    { emoji: '🌟', animation: 'twinkle', top: '40%', left: '5%', delay: '0.8s', size: '2rem' },
+    { emoji: '☄️', animation: 'float', top: '30%', left: '90%', delay: '0.3s', size: '2rem' },
+    { emoji: '🌍', animation: 'pulse', top: '80%', left: '75%', delay: '1.2s', size: '3.2rem' },
+    { emoji: '🛰️', animation: 'bounce', top: '50%', left: '20%', delay: '2.5s', size: '2rem' },
+    { emoji: '✨', animation: 'twinkle', top: '25%', left: '35%', delay: '0.2s', size: '1.5rem' },
+    { emoji: '👽', animation: 'float', top: '65%', left: '50%', delay: '1.8s', size: '2.5rem' },
+    { emoji: '🌈', animation: 'pulse', top: '45%', left: '92%', delay: '0.7s', size: '2.8rem' },
+    { emoji: '⭐', animation: 'twinkle', top: '75%', left: '40%', delay: '1.3s', size: '1.6rem' },
+    { emoji: '🚀', animation: 'bounce', top: '35%', left: '70%', delay: '2.2s', size: '2.3rem' },
+    { emoji: '🌟', animation: 'twinkle', top: '85%', left: '25%', delay: '0.9s', size: '1.8rem' },
+    { emoji: '🪐', animation: 'pulse', top: '55%', left: '60%', delay: '1.6s', size: '2.6rem' },
+  ];
+
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-2xl shadow-2xl">
+    <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200 overflow-hidden">
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          25% { transform: translateY(-15px) rotate(-5deg); }
+          50% { transform: translateY(-25px) rotate(0deg); }
+          75% { transform: translateY(-15px) rotate(5deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 0.2; }
+          50% { transform: scale(1.15); opacity: 0.25; }
+        }
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.15; transform: scale(1) rotate(0deg); }
+          50% { opacity: 0.3; transform: scale(1.2) rotate(180deg); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) translateX(0px); }
+          33% { transform: translateY(-12px) translateX(8px); }
+          66% { transform: translateY(-8px) translateX(-8px); }
+        }
+      `}</style>
+
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        {spaceElements.map((element, index) => (
+          <div
+            key={index}
+            className="absolute"
+            style={{
+              top: element.top,
+              left: element.left,
+              fontSize: element.size,
+              animation: `${element.animation} ${
+                element.animation === 'bounce' ? '3s' :
+                element.animation === 'pulse' ? '4s' :
+                element.animation === 'twinkle' ? '2.5s' : '5s'
+              } ease-in-out ${element.delay} infinite`,
+              opacity: 0.2,
+            }}
+          >
+            {element.emoji}
+          </div>
+        ))}
+      </div>
+
+      {/* Login Form */}
+      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-2xl shadow-2xl relative z-10">
         <div className="text-center">
           <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 whitespace-nowrap">Kinderhaus St. Wolfgang</h1>
           <p className="mt-2 text-gray-600">Willkommen im Elternportal</p>
