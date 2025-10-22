@@ -237,8 +237,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
   }
 
   const greeting = `Willkommen zurück, ${user.name}!`;
-  const subGreeting = user.role === UserRole.PARENT && activeChild
-    ? `Hier ist eine Zusammenfassung für ${activeChild.name} aus der ${getGroupName(activeChild.groupId)}.`
+  const subGreeting = user.role === UserRole.PARENT
+    ? (activeChild 
+        ? `Hier ist eine Zusammenfassung für ${activeChild.name} aus der ${getGroupName(activeChild.groupId)}.`
+        : `Willkommen im Elternportal.`)
     : `Sie sind als Administrator angemeldet.`;
 
   const widgets = {
