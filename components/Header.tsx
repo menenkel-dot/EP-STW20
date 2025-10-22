@@ -20,6 +20,14 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
 
   const hasMultipleChildren = user.children && user.children.length > 1;
   const avatarUrl = activeChild?.avatarUrl || user.avatarUrl;
+  
+  const getInitials = (name: string): string => {
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return parts[0].charAt(0).toUpperCase() + parts[parts.length - 1].charAt(0).toUpperCase();
+    }
+    return name.charAt(0).toUpperCase();
+  };
 
   return (
     <header className="flex items-center justify-between h-20 px-6 bg-white border-b-2 border-gray-200">
@@ -44,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
                 <br/>
                 <span className="text-sm text-gray-500">{activeChild ? `Kind: ${activeChild.name}` : user.role === 'admin' ? 'Verwaltung' : ''}</span>
             </span>
-            {avatarUrl ? (
+            {user.role === 'admin' && avatarUrl ? (
               <img
                 className="h-12 w-12 rounded-full object-cover"
                 src={avatarUrl}
@@ -52,8 +60,8 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
               />
             ) : (
               <div className="h-12 w-12 rounded-full bg-cyan-600 flex items-center justify-center">
-                <span className="text-white font-bold text-xl">
-                  {user.name.charAt(0)}
+                <span className="text-white font-bold text-lg">
+                  {getInitials(user.name)}
                 </span>
               </div>
             )}
