@@ -131,6 +131,10 @@ export const usersAPI = {
     const response = await apiClient.get('/users');
     return response.data;
   },
+  getStaff: async () => {
+    const response = await apiClient.get('/users/staff');
+    return response.data;
+  },
 };
 
 // ==================== CHILDREN API ====================
@@ -385,6 +389,48 @@ export const contactsAPI = {
 
   delete: async (id: number) => {
     const response = await apiClient.delete(`/contacts/${id}`);
+    return response.data;
+  },
+};
+
+// ==================== NOTIFICATIONS API ====================
+
+export const notificationsAPI = {
+  getAll: async () => {
+    const response = await apiClient.get('/notifications');
+    return response.data;
+  },
+
+  create: async (notificationData: {
+    userId: number;
+    message: string;
+    type?: string;
+  }) => {
+    const response = await apiClient.post('/notifications', notificationData);
+    return response.data;
+  },
+
+  markAsRead: async (id: number) => {
+    const response = await apiClient.put(`/notifications/${id}/read`);
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await apiClient.delete(`/notifications/${id}`);
+    return response.data;
+  },
+};
+
+// ==================== SETTINGS API ====================
+
+export const settingsAPI = {
+  get: async (key: string) => {
+    const response = await apiClient.get(`/settings/${key}`);
+    return response.data;
+  },
+
+  update: async (key: string, value: string) => {
+    const response = await apiClient.put(`/settings/${key}`, { value });
     return response.data;
   },
 };

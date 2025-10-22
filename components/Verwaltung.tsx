@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { MOCK_USERS, MOCK_GROUPS } from '../constants';
 import type { User, Child, Group } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
@@ -65,7 +64,7 @@ const Verwaltung: React.FC = () => {
 
     // Form state for new child
     const [newChildName, setNewChildName] = useState('');
-    const [newChildGroupId, setNewChildGroupId] = useState(MOCK_GROUPS[0]?.id || 1);
+    const [newChildGroupId, setNewChildGroupId] = useState(1);
 
     // Form state for new group
     const [newGroupName, setNewGroupName] = useState('');
@@ -236,7 +235,7 @@ const Verwaltung: React.FC = () => {
 
         setChildModalOpen(false);
         setNewChildName('');
-        setNewChildGroupId(MOCK_GROUPS[0]?.id || 1);
+        setNewChildGroupId(groups[0]?.id || 1);
         setSelectedUser(null);
     };
 

@@ -1,10 +1,11 @@
 import { 
-  users, children, groups, absences, documents, events, posts, holidayPeriods, holidayBookings, conversations, messages, contacts,
+  users, children, groups, absences, documents, events, posts, holidayPeriods, holidayBookings, conversations, messages, contacts, notifications, settings,
   type User, type InsertUser, type Child, type InsertChild, type Group, 
   type Absence, type InsertAbsence, type Document, type Event, type InsertEvent,
   type Post, type InsertPost, type HolidayPeriod, type InsertHolidayPeriod,
   type HolidayBooking, type InsertHolidayBooking, type Conversation, type InsertConversation,
-  type Message, type InsertMessage, type Contact, type InsertContact
+  type Message, type InsertMessage, type Contact, type InsertContact, type Notification, type InsertNotification,
+  type Setting, type InsertSetting
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, desc } from "drizzle-orm";
@@ -15,6 +16,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
   
   // Children Operations
   getChildrenByParentId(parentId: number): Promise<Child[]>;
@@ -81,6 +83,16 @@ export interface IStorage {
   createContact(insertContact: InsertContact): Promise<Contact>;
   updateContact(id: number, updates: Partial<InsertContact>): Promise<Contact | undefined>;
   deleteContact(id: number): Promise<boolean>;
+  
+  // Notifications Operations
+  getAllNotifications(userId: number): Promise<Notification[]>;
+  createNotification(insertNotification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<void>;
+  deleteNotification(id: number): Promise<boolean>;
+  
+  // Settings Operations
+  getSetting(key: string): Promise<Setting | undefined>;
+  updateSetting(key: string, value: string): Promise<Setting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -105,6 +117,18 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users);
+  }
+
+  async getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]> {
+    const staff = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+      })
+      .from(users)
+      .where(eq(users.role, 'admin'));
+    return staff;
   }
 
   // Children Operations
@@ -383,6 +407,58 @@ export class DatabaseStorage implements IStorage {
   async deleteContact(id: number): Promise<boolean> {
     const result = await db.delete(contacts).where(eq(contacts.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Notifications Operations
+  async getAllNotifications(userId: number): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values(insertNotification)
+      .returning();
+    return notification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  async deleteNotification(id: number): Promise<boolean> {
+    const result = await db.delete(notifications).where(eq(notifications.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  // Settings Operations
+  async getSetting(key: string): Promise<Setting | undefined> {
+    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+    return setting || undefined;
+  }
+
+  async updateSetting(key: string, value: string): Promise<Setting> {
+    const existingSetting = await this.getSetting(key);
+    
+    if (existingSetting) {
+      const [updated] = await db
+        .update(settings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(settings.key, key))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(settings)
+        .values({ key, value })
+        .returning();
+      return created;
+    }
   }
 }
 

@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from './hooks/useAuth';
 import type { User, Notification, Child } from './types';
-import { MOCK_NOTIFICATIONS } from './constants';
-import { authAPI, type LoginResponse } from './lib/client';
+import { authAPI, notificationsAPI, type LoginResponse } from './lib/client';
 import Login from './components/Login';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeChild, setActiveChild] = useState<Child | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Beim App-Start: Prüfe ob User eingeloggt ist
@@ -56,6 +55,22 @@ const App: React.FC = () => {
     checkAuth();
   }, []);
 
+  // Benachrichtigungen laden, wenn User eingeloggt ist
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (currentUser) {
+        try {
+          const data = await notificationsAPI.getAll();
+          setNotifications(data);
+        } catch (error) {
+          console.error('Fehler beim Laden der Benachrichtigungen:', error);
+        }
+      }
+    };
+
+    loadNotifications();
+  }, [currentUser]);
+
   const login = async (username: string, pass: string): Promise<boolean> => {
     try {
       const response = await authAPI.login({ username, password: pass });
@@ -98,14 +113,20 @@ const App: React.FC = () => {
     authAPI.logout();
     setCurrentUser(null);
     setActiveChild(null);
+    setNotifications([]);
   };
 
   const handleSetActiveChild = (child: Child) => {
     setActiveChild(child);
   };
 
-  const markNotificationAsRead = (id: number) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const markNotificationAsRead = async (id: number) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (error) {
+      console.error('Fehler beim Markieren der Benachrichtigung:', error);
+    }
   };
 
   const addNotification = (message: string) => {

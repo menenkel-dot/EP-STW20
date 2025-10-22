@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { MOCK_MENU_URL } from '../constants';
 import type { Contact } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { contactsAPI } from '../lib/client';
+import { contactsAPI, settingsAPI } from '../lib/client';
 
 const WeitereInfos: React.FC = () => {
     const { user } = useAuth();
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [menuUrl, setMenuUrl] = useState<string>(MOCK_MENU_URL);
+    const [menuUrl, setMenuUrl] = useState<string>('https://www.catering-beispiel.de/speiseplan');
 
     // Modal and form state
     const [isContactModalOpen, setContactModalOpen] = useState(false);
@@ -26,18 +25,28 @@ const WeitereInfos: React.FC = () => {
     const [formMenuUrl, setFormMenuUrl] = useState(menuUrl);
 
     useEffect(() => {
-        const loadContacts = async () => {
+        const loadData = async () => {
             setIsLoading(true);
             try {
-                const data = await contactsAPI.getAll();
-                setContacts(data);
+                const contactsData = await contactsAPI.getAll();
+                setContacts(contactsData);
+
+                try {
+                    const menuSetting = await settingsAPI.get('menu_url');
+                    if (menuSetting && menuSetting.value) {
+                        setMenuUrl(menuSetting.value);
+                        setFormMenuUrl(menuSetting.value);
+                    }
+                } catch (error) {
+                    console.log('Menu URL nicht im Backend gefunden, verwende Default-Wert');
+                }
             } catch (error) {
-                console.error('Fehler beim Laden der Kontakte:', error);
+                console.error('Fehler beim Laden der Daten:', error);
             } finally {
                 setIsLoading(false);
             }
         };
-        loadContacts();
+        loadData();
     }, []);
 
     const handleOpenContactModal = (contact: Contact | null = null) => {
@@ -111,9 +120,18 @@ const WeitereInfos: React.FC = () => {
         }
     };
 
-    const handleSaveMenuUrl = () => {
-        setMenuUrl(formMenuUrl);
-        setMenuModalOpen(false);
+    const handleSaveMenuUrl = async () => {
+        setIsLoading(true);
+        try {
+            await settingsAPI.update('menu_url', formMenuUrl);
+            setMenuUrl(formMenuUrl);
+            setMenuModalOpen(false);
+        } catch (error) {
+            console.error('Fehler beim Speichern der Menu URL:', error);
+            alert('Fehler beim Speichern der Menu URL. Bitte versuchen Sie es erneut.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

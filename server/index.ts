@@ -197,6 +197,17 @@ app.get('/api/users', authenticateToken, async (req: AuthRequest, res: Response)
   }
 });
 
+// Get staff/admin users (accessible to all authenticated users, for displaying names in messages)
+app.get('/api/users/staff', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const staff = await storage.getStaffUsers();
+    res.json(staff);
+  } catch (error) {
+    console.error('Get staff users error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // ==================== CHILDREN ROUTES ====================
 
 // Get children for current user
@@ -974,6 +985,133 @@ app.delete('/api/contacts/:id', authenticateToken, async (req: AuthRequest, res:
     res.json({ success: true });
   } catch (error) {
     console.error('Delete contact error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== NOTIFICATIONS ROUTES ====================
+
+// Get all notifications for current user
+app.get('/api/notifications', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const notifications = await storage.getAllNotifications(req.user.userId);
+    res.json(notifications);
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create notification (admin only)
+app.post('/api/notifications', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { userId, message, type } = req.body;
+
+    if (!userId || !message) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder: userId und message erforderlich' });
+    }
+
+    const notification = await storage.createNotification({
+      userId,
+      message,
+      type: type || 'info',
+      read: false
+    });
+
+    res.status(201).json(notification);
+  } catch (error) {
+    console.error('Create notification error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Mark notification as read
+app.put('/api/notifications/:id/read', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    await storage.markNotificationAsRead(id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete notification
+app.delete('/api/notifications/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    const success = await storage.deleteNotification(id);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Benachrichtigung nicht gefunden' });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// ==================== SETTINGS ROUTES ====================
+
+// Get setting by key (protected)
+app.get('/api/settings/:key', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { key } = req.params;
+    const setting = await storage.getSetting(key);
+
+    if (!setting) {
+      return res.status(404).json({ error: 'Setting nicht gefunden' });
+    }
+
+    res.json(setting);
+  } catch (error) {
+    console.error('Get setting error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update setting (admin only)
+app.put('/api/settings/:key', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { key } = req.params;
+    const { value } = req.body;
+
+    if (!value) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder: value erforderlich' });
+    }
+
+    const setting = await storage.updateSetting(key, value);
+    res.json(setting);
+  } catch (error) {
+    console.error('Update setting error:', error);
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
