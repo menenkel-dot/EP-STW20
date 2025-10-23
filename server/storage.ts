@@ -31,6 +31,7 @@ export interface IStorage {
   // Absences Operations
   getAllAbsences(): Promise<Absence[]>;
   getAbsencesByChildId(childId: number): Promise<Absence[]>;
+  getAbsencesByGroupId(groupId: number): Promise<Absence[]>;
   createAbsence(insertAbsence: InsertAbsence): Promise<Absence>;
   updateAbsence(id: number, updates: Partial<InsertAbsence>): Promise<Absence | undefined>;
   deleteAbsence(id: number): Promise<boolean>;
@@ -191,6 +192,26 @@ export class DatabaseStorage implements IStorage {
 
   async getAbsencesByChildId(childId: number): Promise<Absence[]> {
     return db.select().from(absences).where(eq(absences.childId, childId));
+  }
+
+  async getAbsencesByGroupId(groupId: number): Promise<Absence[]> {
+    // Join absences with children to filter by groupId
+    const result = await db
+      .select({
+        id: absences.id,
+        childId: absences.childId,
+        startDate: absences.startDate,
+        endDate: absences.endDate,
+        reason: absences.reason,
+        symptoms: absences.symptoms,
+        reportedAt: absences.reportedAt
+      })
+      .from(absences)
+      .innerJoin(children, eq(absences.childId, children.id))
+      .where(eq(children.groupId, groupId))
+      .orderBy(desc(absences.reportedAt));
+    
+    return result;
   }
 
   async createAbsence(insertAbsence: InsertAbsence): Promise<Absence> {

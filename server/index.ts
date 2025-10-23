@@ -366,15 +366,31 @@ app.get('/api/documents', authenticateToken, async (req: AuthRequest, res: Respo
 
 // ==================== ABSENCES ROUTES ====================
 
-// Get all absences (admin only)
+// Get all absences (admin and gruppenleitung)
 app.get('/api/absences', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const absences = await storage.getAllAbsences();
-    res.json(absences);
+    // Admin can see all absences
+    if (req.user.role === 'admin') {
+      const absences = await storage.getAllAbsences();
+      return res.json(absences);
+    }
+
+    // Gruppenleitung can see absences for their assigned group
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || !user.assignedGroupId) {
+        return res.status(403).json({ error: 'Keine Gruppe zugewiesen' });
+      }
+      const absences = await storage.getAbsencesByGroupId(user.assignedGroupId);
+      return res.json(absences);
+    }
+
+    // Parents cannot access this endpoint
+    return res.status(403).json({ error: 'Zugriff verweigert' });
   } catch (error) {
     console.error('Get all absences error:', error);
     res.status(500).json({ error: 'Serverfehler' });
