@@ -21,6 +21,11 @@ The application features a dual-server architecture with a React-based frontend 
 ### UI/UX Decisions
 The frontend is built with React and TypeScript, styled using Tailwind CSS for a modern and responsive user interface. Key UI components include a dashboard, navigation sidebar, and distinct views for events, posts, absences, and messaging.
 
+**Avatar Display:**
+- Parent users display initials (2 letters, e.g., "FM" for "Familie Meier") instead of avatar images
+- Admin users keep their avatar images
+- Login page features animated space-themed background
+
 ### Technical Implementations
 - **Frontend:** React 19.2.0, TypeScript, Vite 6.2.0, Tailwind CSS (CDN). Utilizes Axios for API communication with JWT interceptors, and a custom `useAuth` hook for authentication context.
 - **Backend:** Node.js, Express.js, TypeScript. Implements a RESTful API with middleware for authentication and role-based authorization.
@@ -34,11 +39,15 @@ The frontend is built with React and TypeScript, styled using Tailwind CSS for a
 2.  **Multi-child Support:** Parents can manage data for multiple children.
 3.  **Dashboard:** Provides an overview of upcoming events and important posts.
 4.  **Document Management:** Allows access to relevant forms and documents.
-5.  **Absence Reporting:** Parents can submit and manage absence notifications.
+5.  **Absence Reporting:** Parents can submit and manage absence notifications. Admins have overview of all absences from all children.
 6.  **Event Calendar:** Displays upcoming events and activities.
 7.  **Messages:** Enables secure parent-teacher communication with conversation threads.
-8.  **Notifications:** Bell icon with unread notification count.
+8.  **Notifications:** Bell icon with unread notification count, database-backed with 30-second polling. Automatic notifications created when:
+    - Parents report absences (admins notified)
+    - Messages are sent (conversation participants notified)
+    - Local optimistic notifications for immediate user feedback
 9.  **Role-based Access Control:** Differentiates permissions between Admin and Parent roles, with granular control over data access (e.g., child ownership validation for parents).
+10. **Admin User Management:** Admins can delete users from the system (Verwaltung section), with proper cascade deletion of all related data.
 
 ### System Design Choices
 - **Full-Stack Integration:** All frontend components are fully integrated with the backend APIs, removing all mock data dependencies.
