@@ -30,7 +30,7 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
 
     useEffect(() => {
         const loadData = async () => {
-            if (user?.role === UserRole.ADMIN) {
+            if (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) {
                 setIsLoading(true);
                 try {
                     const [childrenData, groupsData, absencesData] = await Promise.all([
