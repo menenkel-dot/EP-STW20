@@ -85,6 +85,7 @@ export interface LoginResponse {
     email: string | null;
     role: string;
     avatarUrl: string | null;
+    assignedGroupId: number | null;
     children: Array<{
       id: number;
       name: string;
