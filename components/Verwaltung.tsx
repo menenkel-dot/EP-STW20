@@ -1,20 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import type { User, Child, Group, Absence } from '../types';
+import type { User, Child, Group } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
 import { useAuth } from '../hooks/useAuth';
-import { authAPI, usersAPI, groupsAPI, absencesAPI } from '../lib/client';
+import { authAPI, usersAPI, groupsAPI } from '../lib/client';
 
 const Verwaltung: React.FC = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
-    const [absences, setAbsences] = useState<Absence[]>([]);
     const [isLoadingUsers, setIsLoadingUsers] = useState(true);
     const [isLoadingGroups, setIsLoadingGroups] = useState(true);
-    const [isLoadingAbsences, setIsLoadingAbsences] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     // Modal states
@@ -31,31 +29,27 @@ const Verwaltung: React.FC = () => {
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
     const [childToAddId, setChildToAddId] = useState<string>('');
 
-    // Load users, groups, and absences on mount
+    // Load users and groups on mount
     useEffect(() => {
         const loadData = async () => {
             try {
                 setIsLoadingUsers(true);
                 setIsLoadingGroups(true);
-                setIsLoadingAbsences(true);
                 setError(null);
 
-                const [usersData, groupsData, absencesData] = await Promise.all([
+                const [usersData, groupsData] = await Promise.all([
                     usersAPI.getAll(),
-                    groupsAPI.getAll(),
-                    absencesAPI.getAll()
+                    groupsAPI.getAll()
                 ]);
 
                 setUsers(usersData);
                 setGroups(groupsData);
-                setAbsences(absencesData);
             } catch (err: any) {
                 console.error('Fehler beim Laden der Daten:', err);
                 setError(err.response?.data?.error || 'Fehler beim Laden der Daten');
             } finally {
                 setIsLoadingUsers(false);
                 setIsLoadingGroups(false);
-                setIsLoadingAbsences(false);
             }
         };
 
@@ -449,76 +443,6 @@ const Verwaltung: React.FC = () => {
                     );
                 })}
             </div>
-
-            {/* Absences Management Section */}
-            <div className="flex justify-between items-center mt-12 mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Abwesenheits-Übersicht</h1>
-            </div>
-
-            {isLoadingAbsences ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                    <p className="text-gray-500">Lade Abwesenheiten...</p>
-                </div>
-            ) : absences.length === 0 ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                    <p className="text-gray-500">Keine Abwesenheiten gemeldet.</p>
-                </div>
-            ) : (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eltern</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Von</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bis</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Symptome</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {absences.map(absence => {
-                                    const child = users.flatMap(u => u.children || []).find(c => c.id === absence.childId);
-                                    const parent = users.find(u => u.children?.some(c => c.id === absence.childId));
-                                    return (
-                                        <tr key={absence.id}>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {child?.name || 'Unbekannt'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {parent?.name || 'Unbekannt'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {absence.startDate}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {absence.endDate}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                                    absence.reason === 'krank' ? 'bg-red-100 text-red-800' :
-                                                    absence.reason === 'urlaub' ? 'bg-blue-100 text-blue-800' :
-                                                    absence.reason === 'termin' ? 'bg-yellow-100 text-yellow-800' :
-                                                    'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                    {absence.reason === 'krank' ? 'Krank' :
-                                                     absence.reason === 'urlaub' ? 'Urlaub' :
-                                                     absence.reason === 'termin' ? 'Termin' :
-                                                     absence.reason}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                {absence.symptoms || '-'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
 
             {/* Modal for creating/editing a user */}
             <Modal isOpen={isUserModalOpen} onClose={handleCloseUserModal} title={editingUser ? 'Benutzer bearbeiten' : 'Neuen Benutzer erstellen'}>

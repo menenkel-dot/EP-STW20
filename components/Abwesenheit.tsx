@@ -33,19 +33,14 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
             if (user?.role === UserRole.ADMIN) {
                 setIsLoading(true);
                 try {
-                    const [childrenData, groupsData] = await Promise.all([
+                    const [childrenData, groupsData, absencesData] = await Promise.all([
                         childrenAPI.getAll(),
-                        groupsAPI.getAll()
+                        groupsAPI.getAll(),
+                        absencesAPI.getAll()
                     ]);
                     setChildren(childrenData);
                     setGroups(groupsData);
-
-                    const allAbsencesPromises = childrenData.map(child => 
-                        absencesAPI.getByChildId(child.id).catch(() => [])
-                    );
-                    const allAbsencesArrays = await Promise.all(allAbsencesPromises);
-                    const combinedAbsences = allAbsencesArrays.flat();
-                    setAbsences(combinedAbsences);
+                    setAbsences(absencesData);
                 } catch (error) {
                     console.error('Fehler beim Laden der Daten:', error);
                     addNotification('Fehler beim Laden der Daten');
