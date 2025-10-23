@@ -171,6 +171,11 @@ export const documentsAPI = {
 // ==================== ABSENCES API ====================
 
 export const absencesAPI = {
+  getAll: async () => {
+    const response = await apiClient.get('/absences');
+    return response.data;
+  },
+
   getByChildId: async (childId: number) => {
     const response = await apiClient.get(`/absences/${childId}`);
     return response.data;
