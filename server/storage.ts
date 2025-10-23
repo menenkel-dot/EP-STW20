@@ -17,6 +17,7 @@ export interface IStorage {
   createUser(insertUser: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
+  deleteUser(id: number): Promise<boolean>;
   
   // Children Operations
   getChildrenByParentId(parentId: number): Promise<Child[]>;
@@ -129,6 +130,11 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.role, 'admin'));
     return staff;
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   // Children Operations

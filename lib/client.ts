@@ -135,6 +135,10 @@ export const usersAPI = {
     const response = await apiClient.get('/users/staff');
     return response.data;
   },
+  delete: async (id: number) => {
+    const response = await apiClient.delete(`/users/${id}`);
+    return response.data;
+  },
 };
 
 // ==================== CHILDREN API ====================

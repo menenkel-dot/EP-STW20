@@ -154,7 +154,7 @@ const Verwaltung: React.FC = () => {
         }
     };
 
-    const handleDeleteUser = (userToDelete: User) => {
+    const handleDeleteUser = async (userToDelete: User) => {
         if (userToDelete.id === currentUser?.id) {
             alert("Sie können sich nicht selbst löschen.");
             return;
@@ -168,7 +168,16 @@ const Verwaltung: React.FC = () => {
                 return;
             }
         }
-        setUsers(users.filter(u => u.id !== userToDelete.id));
+        
+        try {
+            await usersAPI.delete(userToDelete.id);
+            setUsers(users.filter(u => u.id !== userToDelete.id));
+            alert(`Benutzer ${userToDelete.name} erfolgreich gelöscht!`);
+        } catch (err: any) {
+            console.error('Fehler beim Löschen des Benutzers:', err);
+            const errorMessage = err.response?.data?.error || 'Fehler beim Löschen des Benutzers';
+            alert(errorMessage);
+        }
     };
 
     const handleOpenChildModal = (user: User) => {

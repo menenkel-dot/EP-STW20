@@ -208,6 +208,32 @@ app.get('/api/users/staff', authenticateToken, async (req: AuthRequest, res: Res
   }
 });
 
+// Delete user (admin only)
+app.delete('/api/users/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const userId = parseInt(req.params.id);
+    
+    if (userId === req.user.userId) {
+      return res.status(400).json({ error: 'Sie können sich nicht selbst löschen' });
+    }
+
+    const deleted = await storage.deleteUser(userId);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    res.json({ message: 'Benutzer erfolgreich gelöscht' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Löschen des Benutzers' });
+  }
+});
+
 // ==================== CHILDREN ROUTES ====================
 
 // Get children for current user
