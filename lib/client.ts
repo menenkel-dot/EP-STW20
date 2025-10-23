@@ -373,6 +373,11 @@ export const conversationsAPI = {
     const response = await apiClient.post('/conversations', { participantIds });
     return response.data;
   },
+
+  delete: async (id: number) => {
+    const response = await apiClient.delete(`/conversations/${id}`);
+    return response.data;
+  },
 };
 
 // ==================== MESSAGES API ====================

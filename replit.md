@@ -41,7 +41,7 @@ The frontend is built with React and TypeScript, styled using Tailwind CSS for a
 4.  **Document Management:** Allows access to relevant forms and documents.
 5.  **Absence Reporting:** Parents can submit and manage absence notifications. Admins have overview of all absences from all children.
 6.  **Event Calendar:** Displays upcoming events and activities.
-7.  **Messages:** Enables secure parent-teacher communication with conversation threads.
+7.  **Messages:** Enables secure parent-teacher communication with conversation threads. Admins can delete/reset conversations.
 8.  **Notifications:** Bell icon with unread notification count, database-backed with 30-second polling. Automatic notifications created when:
     - Parents report absences (admins notified)
     - Messages are sent (conversation participants notified)

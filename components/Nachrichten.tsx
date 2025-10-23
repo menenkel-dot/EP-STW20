@@ -125,6 +125,29 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
     }
   };
 
+  const handleDeleteConversation = async (conversationId: number) => {
+    if (!window.confirm('Sind Sie sicher, dass Sie diese Konversation löschen möchten? Alle Nachrichten werden unwiderruflich gelöscht.')) {
+      return;
+    }
+
+    try {
+      await conversationsAPI.delete(conversationId);
+      
+      // Wenn die gelöschte Konversation ausgewählt war, Auswahl zurücksetzen
+      if (selectedConversationId === conversationId) {
+        setSelectedConversationId(null);
+      }
+      
+      // Konversationen neu laden
+      await loadConversationsAndMessages();
+      
+      alert('Konversation erfolgreich gelöscht');
+    } catch (err: any) {
+      console.error('Fehler beim Löschen der Konversation:', err);
+      alert('Fehler beim Löschen der Konversation');
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!replyContent.trim() || !selectedConversationId) return;
 
@@ -315,17 +338,35 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
                             return (
                                 <div
                                     key={convo.id}
-                                    className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedConversationId === convo.id ? 'bg-cyan-50' : ''}`}
-                                    onClick={() => setSelectedConversationId(convo.id)}
+                                    className={`p-4 hover:bg-gray-100 ${selectedConversationId === convo.id ? 'bg-cyan-50' : ''} relative group`}
                                 >
-                                    <p className="font-semibold text-gray-800">
-                                        {user.role === UserRole.ADMIN 
-                                            ? (otherUser?.name || 'Unbekannter Benutzer') 
-                                            : 'Kita Leitung'}
-                                    </p>
-                                    <p className="text-sm text-gray-500 truncate">
-                                        {lastMessage?.content || 'Keine Nachrichten'}
-                                    </p>
+                                    <div 
+                                        className="cursor-pointer"
+                                        onClick={() => setSelectedConversationId(convo.id)}
+                                    >
+                                        <p className="font-semibold text-gray-800">
+                                            {user.role === UserRole.ADMIN 
+                                                ? (otherUser?.name || 'Unbekannter Benutzer') 
+                                                : 'Kita Leitung'}
+                                        </p>
+                                        <p className="text-sm text-gray-500 truncate">
+                                            {lastMessage?.content || 'Keine Nachrichten'}
+                                        </p>
+                                    </div>
+                                    {user.role === UserRole.ADMIN && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteConversation(convo.id);
+                                            }}
+                                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-600 transition-opacity"
+                                            title="Konversation löschen"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
                             );
                         })

@@ -384,6 +384,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(conversations.id, id));
   }
 
+  async deleteConversation(id: number): Promise<boolean> {
+    const result = await db.delete(conversations).where(eq(conversations.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
   // Messages Operations
   async getMessagesByConversationId(conversationId: number): Promise<Message[]> {
     return db.select().from(messages)

@@ -966,6 +966,27 @@ app.post('/api/conversations', authenticateToken, async (req: AuthRequest, res: 
   }
 });
 
+// Delete a conversation (admin only)
+app.delete('/api/conversations/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const conversationId = parseInt(req.params.id);
+    const deleted = await storage.deleteConversation(conversationId);
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Konversation nicht gefunden' });
+    }
+
+    res.json({ message: 'Konversation erfolgreich gelöscht' });
+  } catch (error) {
+    console.error('Delete conversation error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Löschen der Konversation' });
+  }
+});
+
 // ==================== MESSAGES ROUTES ====================
 
 // Get messages for a conversation
