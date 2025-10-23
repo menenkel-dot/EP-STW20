@@ -236,18 +236,101 @@ app.delete('/api/users/:id', authenticateToken, async (req: AuthRequest, res: Re
 
 // ==================== CHILDREN ROUTES ====================
 
-// Get children for current user
+// Get children for current user (or all for admin)
 app.get('/api/children', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
+    // Admin can see all children
+    if (req.user.role === 'admin') {
+      const children = await storage.getAllChildren();
+      return res.json(children);
+    }
+
+    // Parents see only their own children
     const children = await storage.getChildrenByParentId(req.user.userId);
     res.json(children);
   } catch (error) {
     console.error('Get children error:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create a new child (admin only)
+app.post('/api/children', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const { name, parentId, groupId, avatarUrl } = req.body;
+
+    if (!name || !parentId) {
+      return res.status(400).json({ error: 'Name und Eltern-ID sind erforderlich' });
+    }
+
+    const child = await storage.createChild({
+      name,
+      parentId,
+      groupId: groupId || null,
+      avatarUrl: avatarUrl || `https://picsum.photos/seed/${name.toLowerCase().replace(' ', '')}/100/100`,
+    });
+
+    res.status(201).json(child);
+  } catch (error) {
+    console.error('Create child error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Erstellen des Kindes' });
+  }
+});
+
+// Update a child (admin only)
+app.put('/api/children/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const childId = parseInt(req.params.id);
+    const { name, groupId, avatarUrl } = req.body;
+
+    const updates: any = {};
+    if (name !== undefined) updates.name = name;
+    if (groupId !== undefined) updates.groupId = groupId;
+    if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+
+    const child = await storage.updateChild(childId, updates);
+
+    if (!child) {
+      return res.status(404).json({ error: 'Kind nicht gefunden' });
+    }
+
+    res.json(child);
+  } catch (error) {
+    console.error('Update child error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Aktualisieren des Kindes' });
+  }
+});
+
+// Delete a child (admin only)
+app.delete('/api/children/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const childId = parseInt(req.params.id);
+    const deleted = await storage.deleteChild(childId);
+
+    if (!deleted) {
+      return res.status(404).json({ error: 'Kind nicht gefunden' });
+    }
+
+    res.json({ message: 'Kind erfolgreich gelöscht' });
+  } catch (error) {
+    console.error('Delete child error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Löschen des Kindes' });
   }
 });
 

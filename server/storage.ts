@@ -156,6 +156,24 @@ export class DatabaseStorage implements IStorage {
     return child;
   }
 
+  async updateChild(id: number, updates: Partial<InsertChild>): Promise<Child | undefined> {
+    const [child] = await db
+      .update(children)
+      .set(updates)
+      .where(eq(children.id, id))
+      .returning();
+    return child || undefined;
+  }
+
+  async deleteChild(id: number): Promise<boolean> {
+    const result = await db.delete(children).where(eq(children.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getAllChildren(): Promise<Child[]> {
+    return db.select().from(children);
+  }
+
   // Groups Operations
   async getAllGroups(): Promise<Group[]> {
     return db.select().from(groups);

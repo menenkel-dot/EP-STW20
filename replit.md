@@ -30,8 +30,8 @@ The frontend is built with React and TypeScript, styled using Tailwind CSS for a
 - **Frontend:** React 19.2.0, TypeScript, Vite 6.2.0, Tailwind CSS (CDN). Utilizes Axios for API communication with JWT interceptors, and a custom `useAuth` hook for authentication context.
 - **Backend:** Node.js, Express.js, TypeScript. Implements a RESTful API with middleware for authentication and role-based authorization.
 - **Authentication:** Secure JWT-based authentication with `bcrypt` for password hashing and refresh tokens for persistent login. Registration is admin-only.
-- **Database:** PostgreSQL, managed with Drizzle ORM. The schema includes tables for users, children, groups, events, posts, holiday periods, bookings, conversations, messages, contacts, and documents.
-- **State Management:** Data is loaded from the backend, replacing all mock data. Components manage their loading states and error handling.
+- **Database:** PostgreSQL, managed with Drizzle ORM. The schema includes tables for users, children, groups, events, posts, holiday periods, bookings, conversations, messages, contacts, and documents. All entities are fully persisted in the database.
+- **State Management:** All data is loaded from the backend and persisted to the database. Components manage their loading states and error handling. Children are created, updated, and deleted through API endpoints.
 - **Proxy Configuration:** Vite is configured to proxy `/api` requests to the backend server.
 
 ### Feature Specifications

@@ -148,6 +148,30 @@ export const childrenAPI = {
     const response = await apiClient.get('/children');
     return response.data;
   },
+  
+  create: async (childData: {
+    name: string;
+    parentId: number;
+    groupId?: number;
+    avatarUrl?: string;
+  }) => {
+    const response = await apiClient.post('/children', childData);
+    return response.data;
+  },
+
+  update: async (id: number, updates: {
+    name?: string;
+    groupId?: number;
+    avatarUrl?: string;
+  }) => {
+    const response = await apiClient.put(`/children/${id}`, updates);
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await apiClient.delete(`/children/${id}`);
+    return response.data;
+  },
 };
 
 // ==================== GROUPS API ====================

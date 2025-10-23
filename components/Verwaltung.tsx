@@ -5,7 +5,7 @@ import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
 import { useAuth } from '../hooks/useAuth';
-import { authAPI, usersAPI, groupsAPI } from '../lib/client';
+import { authAPI, usersAPI, groupsAPI, childrenAPI } from '../lib/client';
 
 const Verwaltung: React.FC = () => {
     const { user: currentUser } = useAuth();
@@ -224,43 +224,71 @@ const Verwaltung: React.FC = () => {
     };
 
 
-    const handleAddChild = () => {
+    const handleAddChild = async () => {
         if (!newChildName || !selectedUser) {
             alert('Bitte Namen des Kindes angeben.');
             return;
         }
-        const newChild: Child = {
-            id: Date.now(),
-            name: newChildName,
-            groupId: newChildGroupId,
-            avatarUrl: `https://picsum.photos/seed/${newChildName.toLowerCase().replace(' ', '')}/100/100`
-        };
 
-        setUsers(users.map(u => 
-            u.id === selectedUser.id 
-            ? { ...u, children: [...(u.children || []), newChild] } 
-            : u
-        ));
+        try {
+            setError(null);
+            
+            // Kind in der Datenbank erstellen
+            const newChild = await childrenAPI.create({
+                name: newChildName,
+                parentId: selectedUser.id,
+                groupId: newChildGroupId,
+            });
 
-        setChildModalOpen(false);
-        setNewChildName('');
-        setNewChildGroupId(groups[0]?.id || 1);
-        setSelectedUser(null);
+            // Lokalen State aktualisieren
+            setUsers(users.map(u => 
+                u.id === selectedUser.id 
+                ? { ...u, children: [...(u.children || []), newChild] } 
+                : u
+            ));
+
+            setChildModalOpen(false);
+            setNewChildName('');
+            setNewChildGroupId(groups[0]?.id || 1);
+            setSelectedUser(null);
+            
+            alert(`Kind ${newChildName} wurde erfolgreich hinzugefügt!`);
+        } catch (err: any) {
+            console.error('Fehler beim Hinzufügen des Kindes:', err);
+            const errorMessage = err.response?.data?.error || 'Fehler beim Hinzufügen des Kindes';
+            alert(errorMessage);
+            setError(errorMessage);
+        }
     };
 
-    const handleRemoveChildFromUser = (userId: number, childId: number) => {
-        if (window.confirm("Sind Sie sicher, dass Sie dieses Kind vom Benutzer entfernen möchten?")) {
-            setUsers(currentUsers =>
-                currentUsers.map(user => {
-                    if (user.id === userId) {
-                        return {
-                            ...user,
-                            children: user.children.filter(child => child.id !== childId)
-                        };
-                    }
-                    return user;
-                })
-            );
+    const handleRemoveChildFromUser = async (userId: number, childId: number) => {
+        if (window.confirm("Sind Sie sicher, dass Sie dieses Kind löschen möchten? Dies kann nicht rückgängig gemacht werden.")) {
+            try {
+                setError(null);
+                
+                // Kind aus der Datenbank löschen
+                await childrenAPI.delete(childId);
+                
+                // Lokalen State aktualisieren
+                setUsers(currentUsers =>
+                    currentUsers.map(user => {
+                        if (user.id === userId) {
+                            return {
+                                ...user,
+                                children: user.children.filter(child => child.id !== childId)
+                            };
+                        }
+                        return user;
+                    })
+                );
+                
+                alert('Kind wurde erfolgreich gelöscht!');
+            } catch (err: any) {
+                console.error('Fehler beim Löschen des Kindes:', err);
+                const errorMessage = err.response?.data?.error || 'Fehler beim Löschen des Kindes';
+                alert(errorMessage);
+                setError(errorMessage);
+            }
         }
     };
 
@@ -289,26 +317,57 @@ const Verwaltung: React.FC = () => {
         }
     }
 
-    const handleAddChildToGroup = () => {
+    const handleAddChildToGroup = async () => {
         if (!childToAddId || !selectedGroup) return;
-        const updatedUsers = users.map(user => ({
-            ...user,
-            children: user.children?.map(child =>
-                child.id === Number(childToAddId) ? { ...child, groupId: selectedGroup.id } : child
-            )
-        }));
-        setUsers(updatedUsers);
-        setChildToAddId('');
+        
+        try {
+            setError(null);
+            
+            // Kind in der Datenbank aktualisieren
+            await childrenAPI.update(Number(childToAddId), {
+                groupId: selectedGroup.id
+            });
+            
+            // Lokalen State aktualisieren
+            const updatedUsers = users.map(user => ({
+                ...user,
+                children: user.children?.map(child =>
+                    child.id === Number(childToAddId) ? { ...child, groupId: selectedGroup.id } : child
+                )
+            }));
+            setUsers(updatedUsers);
+            setChildToAddId('');
+        } catch (err: any) {
+            console.error('Fehler beim Zuweisen des Kindes zur Gruppe:', err);
+            const errorMessage = err.response?.data?.error || 'Fehler beim Zuweisen des Kindes';
+            alert(errorMessage);
+            setError(errorMessage);
+        }
     };
     
-    const handleRemoveChildFromGroup = (childId: number) => {
-        const updatedUsers = users.map(user => ({
-            ...user,
-            children: user.children?.map(child => 
-                child.id === childId ? { ...child, groupId: 0 } : child // 0 for "unassigned"
-            )
-        }));
-        setUsers(updatedUsers);
+    const handleRemoveChildFromGroup = async (childId: number) => {
+        try {
+            setError(null);
+            
+            // Kind in der Datenbank aktualisieren (Gruppe entfernen)
+            await childrenAPI.update(childId, {
+                groupId: 0
+            });
+            
+            // Lokalen State aktualisieren
+            const updatedUsers = users.map(user => ({
+                ...user,
+                children: user.children?.map(child => 
+                    child.id === childId ? { ...child, groupId: 0 } : child
+                )
+            }));
+            setUsers(updatedUsers);
+        } catch (err: any) {
+            console.error('Fehler beim Entfernen des Kindes aus der Gruppe:', err);
+            const errorMessage = err.response?.data?.error || 'Fehler beim Entfernen des Kindes';
+            alert(errorMessage);
+            setError(errorMessage);
+        }
     };
 
     const allChildren = users.flatMap(u => u.children || []);
