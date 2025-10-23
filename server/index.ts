@@ -799,15 +799,31 @@ app.delete('/api/holiday-periods/:id', authenticateToken, async (req: AuthReques
 
 // ==================== HOLIDAY BOOKINGS ROUTES ====================
 
-// Get all holiday bookings (admin only)
+// Get all holiday bookings (admin and gruppenleitung)
 app.get('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const bookings = await storage.getAllHolidayBookings();
-    res.json(bookings);
+    // Admin can see all bookings
+    if (req.user.role === 'admin') {
+      const bookings = await storage.getAllHolidayBookings();
+      return res.json(bookings);
+    }
+
+    // Gruppenleitung can see bookings for their assigned group
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || !user.assignedGroupId) {
+        return res.status(403).json({ error: 'Keine Gruppe zugewiesen' });
+      }
+      const bookings = await storage.getHolidayBookingsByGroupId(user.assignedGroupId);
+      return res.json(bookings);
+    }
+
+    // Parents cannot access this endpoint
+    return res.status(403).json({ error: 'Zugriff verweigert' });
   } catch (error) {
     console.error('Get holiday bookings error:', error);
     res.status(500).json({ error: 'Serverfehler' });

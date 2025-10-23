@@ -65,6 +65,7 @@ export interface IStorage {
   getAllHolidayBookings(): Promise<HolidayBooking[]>;
   getHolidayBookingsByPeriodId(periodId: number): Promise<HolidayBooking[]>;
   getHolidayBookingsByChildId(childId: number): Promise<HolidayBooking[]>;
+  getHolidayBookingsByGroupId(groupId: number): Promise<HolidayBooking[]>;
   createHolidayBooking(insertBooking: InsertHolidayBooking): Promise<HolidayBooking>;
   updateHolidayBooking(id: number, updates: Partial<InsertHolidayBooking>): Promise<HolidayBooking | undefined>;
   deleteHolidayBooking(id: number): Promise<boolean>;
@@ -352,6 +353,29 @@ export class DatabaseStorage implements IStorage {
 
   async getHolidayBookingsByChildId(childId: number): Promise<HolidayBooking[]> {
     return db.select().from(holidayBookings).where(eq(holidayBookings.childId, childId));
+  }
+
+  async getHolidayBookingsByGroupId(groupId: number): Promise<HolidayBooking[]> {
+    // Join holiday bookings with children to filter by groupId
+    const result = await db
+      .select({
+        id: holidayBookings.id,
+        childId: holidayBookings.childId,
+        periodId: holidayBookings.periodId,
+        needsCare: holidayBookings.needsCare,
+        fromDate: holidayBookings.fromDate,
+        toDate: holidayBookings.toDate,
+        fromTime: holidayBookings.fromTime,
+        toTime: holidayBookings.toTime,
+        withLunch: holidayBookings.withLunch,
+        createdAt: holidayBookings.createdAt,
+        updatedAt: holidayBookings.updatedAt
+      })
+      .from(holidayBookings)
+      .innerJoin(children, eq(holidayBookings.childId, children.id))
+      .where(eq(children.groupId, groupId));
+    
+    return result;
   }
 
   async createHolidayBooking(insertBooking: InsertHolidayBooking): Promise<HolidayBooking> {
