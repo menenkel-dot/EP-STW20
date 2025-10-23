@@ -17,6 +17,8 @@ export interface IStorage {
   createUser(insertUser: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
   getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
+  getParentsByGroupId(groupId: number): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
+  getStaffByGroupIds(groupIds: number[]): Promise<Pick<User, 'id' | 'name' | 'role' | 'assignedGroupId'>[]>;
   deleteUser(id: number): Promise<boolean>;
   
   // Children Operations
@@ -133,6 +135,51 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.role, 'admin'));
     return staff;
+  }
+
+  async getParentsByGroupId(groupId: number): Promise<Pick<User, 'id' | 'name' | 'role'>[]> {
+    const parents = await db
+      .selectDistinct({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+      })
+      .from(users)
+      .innerJoin(children, eq(children.parentId, users.id))
+      .where(and(eq(users.role, 'parent'), eq(children.groupId, groupId)));
+    return parents;
+  }
+
+  async getStaffByGroupIds(groupIds: number[]): Promise<Pick<User, 'id' | 'name' | 'role' | 'assignedGroupId'>[]> {
+    if (groupIds.length === 0) {
+      return [];
+    }
+    
+    const staff = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+        assignedGroupId: users.assignedGroupId,
+      })
+      .from(users)
+      .where(eq(users.role, 'admin'));
+    
+    const groupLeaders = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+        assignedGroupId: users.assignedGroupId,
+      })
+      .from(users)
+      .where(eq(users.role, 'gruppenleitung'));
+    
+    const relevantGroupLeaders = groupLeaders.filter(gl => 
+      gl.assignedGroupId && groupIds.includes(gl.assignedGroupId)
+    );
+    
+    return [...staff, ...relevantGroupLeaders];
   }
 
   async deleteUser(id: number): Promise<boolean> {

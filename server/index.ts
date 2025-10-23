@@ -2,6 +2,9 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { storage } from './storage.js';
+import { db } from './db.js';
+import { users } from '../shared/schema.js';
+import { eq } from 'drizzle-orm';
 import { 
   generateToken, 
   generateRefreshToken, 
@@ -209,8 +212,41 @@ app.get('/api/users', authenticateToken, async (req: AuthRequest, res: Response)
 // Get staff/admin users (accessible to all authenticated users, for displaying names in messages)
 app.get('/api/users/staff', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const staff = await storage.getStaffUsers();
-    res.json(staff);
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const currentUser = await storage.getUser(req.user.userId);
+    if (!currentUser) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    let result: Array<{id: number, name: string, role: string, assignedGroupId?: number | null}> = [];
+
+    if (currentUser.role === 'admin') {
+      // Admins sehen alle Eltern
+      const parents = await db.select({
+        id: users.id,
+        name: users.name,
+        role: users.role,
+      }).from(users).where(eq(users.role, 'parent'));
+      result = parents;
+    } else if (currentUser.role === 'gruppenleitung') {
+      // Gruppenleitungen sehen nur Eltern mit Kindern in ihrer Gruppe
+      if (!currentUser.assignedGroupId) {
+        return res.status(400).json({ error: 'Gruppenleitung hat keine zugewiesene Gruppe' });
+      }
+      const parents = await storage.getParentsByGroupId(currentUser.assignedGroupId);
+      result = parents;
+    } else if (currentUser.role === 'parent') {
+      // Eltern sehen Admins + Gruppenleitungen der Gruppen, in denen ihre Kinder sind
+      const userChildren = await storage.getChildrenByParentId(req.user.userId);
+      const groupIds = [...new Set(userChildren.map(c => c.groupId).filter((id): id is number => id !== null))];
+      const staff = await storage.getStaffByGroupIds(groupIds);
+      result = staff;
+    }
+
+    res.json(result);
   } catch (error) {
     console.error('Get staff users error:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -1024,7 +1060,27 @@ app.get('/api/conversations', authenticateToken, async (req: AuthRequest, res: R
       return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const conversations = await storage.getConversationsByUserId(req.user.userId);
+    let conversations = await storage.getConversationsByUserId(req.user.userId);
+
+    // Für Gruppenleitungen: Nur Konversationen mit Eltern ihrer Gruppe anzeigen
+    if (req.user.role === 'gruppenleitung') {
+      const currentUser = await storage.getUser(req.user.userId);
+      if (!currentUser || !currentUser.assignedGroupId) {
+        return res.status(400).json({ error: 'Gruppenleitung hat keine zugewiesene Gruppe' });
+      }
+
+      // Hole alle Eltern der zugewiesenen Gruppe
+      const allowedParents = await storage.getParentsByGroupId(currentUser.assignedGroupId);
+      const allowedParentIds = allowedParents.map(p => p.id);
+
+      // Filtere Konversationen: Alle Teilnehmer (außer Gruppenleitung selbst) müssen Eltern der Gruppe sein
+      conversations = conversations.filter(conv => {
+        const participantIds: number[] = JSON.parse(conv.participantIds);
+        const otherParticipants = participantIds.filter(id => id !== req.user!.userId);
+        return otherParticipants.every(id => allowedParentIds.includes(id));
+      });
+    }
+
     res.json(conversations);
   } catch (error) {
     console.error('Get conversations error:', error);
@@ -1043,6 +1099,39 @@ app.post('/api/conversations', authenticateToken, async (req: AuthRequest, res: 
 
     if (!participantIds || !Array.isArray(participantIds)) {
       return res.status(400).json({ error: 'Fehlende oder ungültige participantIds' });
+    }
+
+    // Validierung: Gruppenleitung darf nur mit Eltern ihrer Gruppe kommunizieren
+    if (req.user.role === 'gruppenleitung') {
+      const currentUser = await storage.getUser(req.user.userId);
+      if (!currentUser || !currentUser.assignedGroupId) {
+        return res.status(400).json({ error: 'Gruppenleitung hat keine zugewiesene Gruppe' });
+      }
+
+      const allowedParents = await storage.getParentsByGroupId(currentUser.assignedGroupId);
+      const allowedParentIds = allowedParents.map(p => p.id);
+
+      const otherParticipants = participantIds.filter(id => id !== req.user!.userId);
+      const allAllowed = otherParticipants.every(id => allowedParentIds.includes(id));
+
+      if (!allAllowed) {
+        return res.status(403).json({ error: 'Gruppenleitung darf nur mit Eltern ihrer Gruppe kommunizieren' });
+      }
+    }
+
+    // Validierung: Eltern dürfen nur mit Admins und Gruppenleitungen ihrer Kindergruppen kommunizieren
+    if (req.user.role === 'parent') {
+      const userChildren = await storage.getChildrenByParentId(req.user.userId);
+      const groupIds = [...new Set(userChildren.map(c => c.groupId).filter((id): id is number => id !== null))];
+      const allowedStaff = await storage.getStaffByGroupIds(groupIds);
+      const allowedStaffIds = allowedStaff.map(s => s.id);
+
+      const otherParticipants = participantIds.filter(id => id !== req.user!.userId);
+      const allAllowed = otherParticipants.every(id => allowedStaffIds.includes(id));
+
+      if (!allAllowed) {
+        return res.status(403).json({ error: 'Eltern dürfen nur mit Admins und Gruppenleitungen ihrer Kindergruppen kommunizieren' });
+      }
     }
 
     const conversation = await storage.createConversation({
