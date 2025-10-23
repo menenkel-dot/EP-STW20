@@ -541,17 +541,35 @@ app.get('/api/events', authenticateToken, async (req: AuthRequest, res: Response
   }
 });
 
-// Create event (admin only)
+// Create event (admin and gruppenleitung)
 app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
     const { title, date, time, location, description, groupIds } = req.body;
 
     if (!title || !date || !time || !location || !description) {
       return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    // Gruppenleitung can only create events for their assigned group
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || !user.assignedGroupId) {
+        return res.status(403).json({ error: 'Keine Gruppe zugewiesen' });
+      }
+      
+      // Ensure groupIds contains only their assigned group
+      if (!groupIds || !Array.isArray(groupIds) || groupIds.length !== 1 || groupIds[0] !== user.assignedGroupId) {
+        return res.status(403).json({ error: 'Sie können nur Veranstaltungen für Ihre zugewiesene Gruppe erstellen' });
+      }
+    }
+
+    // Admin has no restrictions
+    if (req.user.role !== 'admin' && req.user.role !== 'gruppenleitung') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
     }
 
     const event = await storage.createEvent({
@@ -570,15 +588,46 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
   }
 });
 
-// Update event (admin only)
+// Update event (admin and gruppenleitung)
 app.put('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user || req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
     const id = parseInt(req.params.id);
     const { title, date, time, location, description, groupIds } = req.body;
+
+    // Gruppenleitung can only edit events for their assigned group
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || !user.assignedGroupId) {
+        return res.status(403).json({ error: 'Keine Gruppe zugewiesen' });
+      }
+      
+      // Check if event belongs to their group
+      const existingEvent = await storage.getEvent(id);
+      if (!existingEvent) {
+        return res.status(404).json({ error: 'Veranstaltung nicht gefunden' });
+      }
+      
+      const eventGroupIds = existingEvent.groupIds ? JSON.parse(existingEvent.groupIds) : [];
+      if (!eventGroupIds.includes(user.assignedGroupId)) {
+        return res.status(403).json({ error: 'Sie können nur Veranstaltungen Ihrer Gruppe bearbeiten' });
+      }
+      
+      // Ensure groupIds are not changed to other groups
+      if (groupIds !== undefined) {
+        if (!Array.isArray(groupIds) || groupIds.length !== 1 || groupIds[0] !== user.assignedGroupId) {
+          return res.status(403).json({ error: 'Sie können die Gruppe nicht ändern' });
+        }
+      }
+    }
+
+    // Admin has no restrictions
+    if (req.user.role !== 'admin' && req.user.role !== 'gruppenleitung') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
 
     const updates: any = {};
     if (title) updates.title = title;
