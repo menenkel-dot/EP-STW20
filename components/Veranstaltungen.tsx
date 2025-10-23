@@ -69,7 +69,12 @@ const Veranstaltungen: React.FC = () => {
       setTime('');
       setLocation('');
       setDescription('');
-      setSelectedGroupIds([]);
+      // Gruppenleitung: Automatically pre-select their assigned group
+      if (user?.role === UserRole.GRUPPENLEITUNG && user.assignedGroupId) {
+        setSelectedGroupIds([user.assignedGroupId]);
+      } else {
+        setSelectedGroupIds([]);
+      }
     }
     setModalOpen(true);
   };
@@ -166,6 +171,8 @@ const Veranstaltungen: React.FC = () => {
 
   const visibleEvents = user?.role === UserRole.ADMIN 
     ? events 
+    : user?.role === UserRole.GRUPPENLEITUNG
+    ? events.filter(event => event.groupIds && user.assignedGroupId && event.groupIds.includes(user.assignedGroupId))
     : events.filter(event => 
         !event.groupIds || event.groupIds.length === 0 || (activeChild && event.groupIds.includes(activeChild.groupId))
     );
@@ -175,7 +182,7 @@ const Veranstaltungen: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Kommende Veranstaltungen</h1>
-          {user?.role === UserRole.ADMIN && (
+          {(user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) && (
             <Button onClick={() => handleOpenModal()}>+ Neue Veranstaltung</Button>
           )}
         </div>
@@ -202,7 +209,8 @@ const Veranstaltungen: React.FC = () => {
                   <p className="text-gray-600 mt-2">Ort: {event.location}</p>
                   <p className="text-gray-700 mt-4">{event.description}</p>
                 </div>
-                {user?.role === UserRole.ADMIN && (
+                {((user?.role === UserRole.ADMIN) || 
+                  (user?.role === UserRole.GRUPPENLEITUNG && event.groupIds && user.assignedGroupId && event.groupIds.includes(user.assignedGroupId))) && (
                   <div className="flex justify-end space-x-2 mt-4 pt-4 border-t mt-auto">
                       <Button onClick={() => handleOpenModal(event)} variant="secondary">Bearbeiten</Button>
                       <Button onClick={() => handleDeleteEvent(event.id)} variant="danger">Löschen</Button>
@@ -239,38 +247,47 @@ const Veranstaltungen: React.FC = () => {
             <label htmlFor="description" className="block text-sm font-medium text-gray-700">Beschreibung</label>
             <textarea id="description" rows={3} value={description} onChange={e => setDescription(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
           </div>
-           <div>
-            <label className="block text-sm font-medium text-gray-700">Sichtbar für Gruppen (leer lassen für alle)</label>
-            <div className="mt-2 space-y-2 border border-gray-300 rounded-md p-4 max-h-48 overflow-y-auto">
-              <div className="flex items-center">
-                <input
-                  id="all-groups-event"
-                  type="checkbox"
-                  checked={selectedGroupIds.length === groups.length}
-                  onChange={handleSelectAllGroups}
-                  className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
-                />
-                <label htmlFor="all-groups-event" className="ml-3 block text-sm font-medium text-gray-900">
-                  Alle Gruppen
-                </label>
-              </div>
-              <hr className="my-2" />
-              {groups.map(group => (
-                <div key={group.id} className="flex items-center">
+           {user?.role !== UserRole.GRUPPENLEITUNG && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Sichtbar für Gruppen (leer lassen für alle)</label>
+              <div className="mt-2 space-y-2 border border-gray-300 rounded-md p-4 max-h-48 overflow-y-auto">
+                <div className="flex items-center">
                   <input
-                    id={`event-group-${group.id}`}
+                    id="all-groups-event"
                     type="checkbox"
-                    checked={selectedGroupIds.includes(group.id)}
-                    onChange={() => handleGroupCheckboxChange(group.id)}
+                    checked={selectedGroupIds.length === groups.length}
+                    onChange={handleSelectAllGroups}
                     className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
                   />
-                  <label htmlFor={`event-group-${group.id}`} className="ml-3 block text-sm text-gray-700">
-                    {group.name}
+                  <label htmlFor="all-groups-event" className="ml-3 block text-sm font-medium text-gray-900">
+                    Alle Gruppen
                   </label>
                 </div>
-              ))}
+                <hr className="my-2" />
+                {groups.map(group => (
+                  <div key={group.id} className="flex items-center">
+                    <input
+                      id={`event-group-${group.id}`}
+                      type="checkbox"
+                      checked={selectedGroupIds.includes(group.id)}
+                      onChange={() => handleGroupCheckboxChange(group.id)}
+                      className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                    />
+                    <label htmlFor={`event-group-${group.id}`} className="ml-3 block text-sm text-gray-700">
+                      {group.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+           )}
+           {user?.role === UserRole.GRUPPENLEITUNG && (
+             <div className="bg-cyan-50 border border-cyan-200 rounded-md p-3">
+               <p className="text-sm text-gray-700">
+                 Veranstaltung wird automatisch für Ihre zugewiesene Gruppe erstellt: <strong>{groups.find(g => g.id === user.assignedGroupId)?.name}</strong>
+               </p>
+             </div>
+           )}
           <div className="flex justify-end pt-4">
             <Button onClick={handleSaveEvent}>{editingEvent ? 'Änderungen speichern' : 'Erstellen'}</Button>
           </div>
