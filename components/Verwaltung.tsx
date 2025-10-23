@@ -61,6 +61,7 @@ const Verwaltung: React.FC = () => {
     const [formUserUsername, setFormUserUsername] = useState('');
     const [formUserPassword, setFormUserPassword] = useState('');
     const [formUserRole, setFormUserRole] = useState<UserRole>(UserRole.PARENT);
+    const [formUserAssignedGroupId, setFormUserAssignedGroupId] = useState<number | null>(null);
 
     // Form state for new child
     const [newChildName, setNewChildName] = useState('');
@@ -85,12 +86,14 @@ const Verwaltung: React.FC = () => {
         setFormUserUsername(user.username);
         setFormUserRole(user.role);
         setFormUserPassword('');
+        setFormUserAssignedGroupId(user.assignedGroupId || null);
       } else {
         setEditingUser(null);
         setFormUserName('');
         setFormUserUsername('');
         setFormUserPassword('');
         setFormUserRole(UserRole.PARENT);
+        setFormUserAssignedGroupId(null);
       }
       setUserModalOpen(true);
     };
@@ -120,6 +123,12 @@ const Verwaltung: React.FC = () => {
                 return;
             }
 
+            // Validate Gruppenleitung has assignedGroupId
+            if (formUserRole === UserRole.GRUPPENLEITUNG && !formUserAssignedGroupId) {
+                alert('Bitte wählen Sie eine Gruppe für die Gruppenleitung aus.');
+                return;
+            }
+
             try {
                 setError(null);
                 
@@ -128,7 +137,8 @@ const Verwaltung: React.FC = () => {
                     username: formUserUsername,
                     password: formUserPassword,
                     name: formUserName,
-                    role: formUserRole
+                    role: formUserRole,
+                    assignedGroupId: formUserAssignedGroupId
                 });
 
                 // Benutzer zur Liste hinzufügen
@@ -521,8 +531,25 @@ const Verwaltung: React.FC = () => {
                             <select id="role" value={formUserRole} onChange={e => setFormUserRole(e.target.value as UserRole)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
                                 <option value={UserRole.PARENT}>Eltern</option>
                                 <option value={UserRole.ADMIN}>Admin</option>
+                                <option value={UserRole.GRUPPENLEITUNG}>Gruppenleitung</option>
                             </select>
                         </div>
+                        {formUserRole === UserRole.GRUPPENLEITUNG && (
+                            <div>
+                                <label htmlFor="assignedGroup" className="block text-sm font-medium text-gray-700">Zugewiesene Gruppe</label>
+                                <select 
+                                    id="assignedGroup" 
+                                    value={formUserAssignedGroupId || ''} 
+                                    onChange={e => setFormUserAssignedGroupId(e.target.value ? parseInt(e.target.value) : null)} 
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                >
+                                    <option value="">Bitte Gruppe auswählen</option>
+                                    {groups.map(group => (
+                                        <option key={group.id} value={group.id}>{group.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                         <div>
                             <label htmlFor="password"  className="block text-sm font-medium text-gray-700">Initiales Passwort</label>
                             <input type="password" id="password" value={formUserPassword} onChange={e => setFormUserPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>

@@ -107,6 +107,7 @@ export const authAPI = {
     name: string;
     email?: string;
     role?: string;
+    assignedGroupId?: number | null;
   }): Promise<LoginResponse> => {
     const response = await apiClient.post('/auth/register', userData);
     return response.data;

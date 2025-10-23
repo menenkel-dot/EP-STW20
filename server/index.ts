@@ -69,6 +69,7 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         avatarUrl: user.avatarUrl,
+        assignedGroupId: user.assignedGroupId,
         children: children
       }
     });
@@ -113,10 +114,15 @@ app.post('/api/auth/register', authenticateToken, async (req: AuthRequest, res: 
       return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren dürfen Benutzer erstellen' });
     }
 
-    const { username, password, name, email, role } = req.body;
+    const { username, password, name, email, role, assignedGroupId } = req.body;
 
     if (!username || !password || !name) {
       return res.status(400).json({ error: 'Benutzername, Passwort und Name erforderlich' });
+    }
+
+    // Validate assignedGroupId for gruppenleitung
+    if (role === 'gruppenleitung' && !assignedGroupId) {
+      return res.status(400).json({ error: 'Gruppenleitung muss eine Gruppe zugewiesen werden' });
     }
 
     const existingUser = await storage.getUserByUsername(username);
@@ -132,7 +138,8 @@ app.post('/api/auth/register', authenticateToken, async (req: AuthRequest, res: 
       name,
       email: email || null,
       role: role || 'parent',
-      avatarUrl: null
+      avatarUrl: null,
+      assignedGroupId: assignedGroupId || null
     });
 
     res.status(201).json({
@@ -142,7 +149,8 @@ app.post('/api/auth/register', authenticateToken, async (req: AuthRequest, res: 
         name: user.name,
         email: user.email,
         role: user.role,
-        avatarUrl: user.avatarUrl
+        avatarUrl: user.avatarUrl,
+        assignedGroupId: user.assignedGroupId
       }
     });
   } catch (error) {
@@ -172,6 +180,7 @@ app.get('/api/auth/me', authenticateToken, async (req: AuthRequest, res: Respons
       email: user.email,
       role: user.role,
       avatarUrl: user.avatarUrl,
+      assignedGroupId: user.assignedGroupId,
       children: children
     });
   } catch (error) {
