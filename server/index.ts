@@ -356,6 +356,29 @@ app.post('/api/absences', authenticateToken, async (req: AuthRequest, res: Respo
       symptoms: symptoms || null
     });
 
+    // Create notifications for all admin users
+    try {
+      const allUsers = await storage.getAllUsers();
+      const adminUsers = allUsers.filter(u => u.role === 'admin');
+      
+      const reasonText = reason === 'krank' ? 'Krank' :
+                        reason === 'urlaub' ? 'Urlaub' :
+                        reason === 'termin' ? 'Termin' : reason;
+      
+      const notificationPromises = adminUsers.map(admin =>
+        storage.createNotification({
+          userId: admin.id,
+          message: `Neue Abwesenheit gemeldet: ${child.name} (${reasonText}, ${startDate} - ${endDate})`,
+          type: 'info'
+        })
+      );
+      
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating admin notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
+
     res.status(201).json(absence);
   } catch (error) {
     console.error('Create absence error:', error);
@@ -922,6 +945,25 @@ app.post('/api/messages', authenticateToken, async (req: AuthRequest, res: Respo
 
     // Update conversation's lastMessageAt
     await storage.updateConversation(conversationId, new Date());
+
+    // Create notifications for other participants
+    try {
+      const sender = await storage.getUser(req.user.userId);
+      const otherParticipantIds = participantIds.filter((id: number) => id !== req.user.userId);
+      
+      const notificationPromises = otherParticipantIds.map((userId: number) =>
+        storage.createNotification({
+          userId,
+          message: `Neue Nachricht von ${sender?.name || 'Unbekannt'}`,
+          type: 'info'
+        })
+      );
+      
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating message notifications:', notifError);
+      // Don't fail the request if notifications fail
+    }
 
     res.status(201).json(message);
   } catch (error) {
