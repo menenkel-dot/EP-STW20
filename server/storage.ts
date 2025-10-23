@@ -29,6 +29,7 @@ export interface IStorage {
   getGroup(id: number): Promise<Group | undefined>;
   
   // Absences Operations
+  getAllAbsences(): Promise<Absence[]>;
   getAbsencesByChildId(childId: number): Promise<Absence[]>;
   createAbsence(insertAbsence: InsertAbsence): Promise<Absence>;
   updateAbsence(id: number, updates: Partial<InsertAbsence>): Promise<Absence | undefined>;
@@ -166,6 +167,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Absences Operations
+  async getAllAbsences(): Promise<Absence[]> {
+    return db.select().from(absences).orderBy(desc(absences.reportedAt));
+  }
+
   async getAbsencesByChildId(childId: number): Promise<Absence[]> {
     return db.select().from(absences).where(eq(absences.childId, childId));
   }

@@ -283,6 +283,21 @@ app.get('/api/documents', authenticateToken, async (req: AuthRequest, res: Respo
 
 // ==================== ABSENCES ROUTES ====================
 
+// Get all absences (admin only)
+app.get('/api/absences', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert: Nur Administratoren' });
+    }
+
+    const absences = await storage.getAllAbsences();
+    res.json(absences);
+  } catch (error) {
+    console.error('Get all absences error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // Get absences for a child
 app.get('/api/absences/:childId', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
