@@ -3,6 +3,7 @@
 export enum UserRole {
   ADMIN = 'admin',
   PARENT = 'parent',
+  GRUPPENLEITUNG = 'gruppenleitung',
 }
 
 export interface Child {
@@ -20,6 +21,7 @@ export interface User {
   role: UserRole;
   children: Child[];
   avatarUrl: string;
+  assignedGroupId?: number;
 }
 
 export interface Notification {

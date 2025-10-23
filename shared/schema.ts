@@ -10,6 +10,7 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }),
   role: varchar('role', { length: 50 }).notNull().default('parent'),
   avatarUrl: text('avatar_url'),
+  assignedGroupId: integer('assigned_group_id').references(() => groups.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
