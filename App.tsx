@@ -69,6 +69,15 @@ const App: React.FC = () => {
     };
 
     loadNotifications();
+
+    // Poll for new notifications every 30 seconds
+    const intervalId = setInterval(() => {
+      if (currentUser) {
+        loadNotifications();
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
   }, [currentUser]);
 
   const login = async (username: string, pass: string): Promise<boolean> => {
@@ -129,7 +138,20 @@ const App: React.FC = () => {
     }
   };
 
+  const reloadNotifications = async () => {
+    if (currentUser) {
+      try {
+        const data = await notificationsAPI.getAll();
+        setNotifications(data);
+      } catch (error) {
+        console.error('Fehler beim Laden der Benachrichtigungen:', error);
+      }
+    }
+  };
+
   const addNotification = (message: string) => {
+    // Create local notification for immediate user feedback
+    // (for success messages like "Abwesenheit erfolgreich gemeldet")
     const newNotification: Notification = {
       id: Date.now(),
       message,
@@ -137,6 +159,9 @@ const App: React.FC = () => {
       type: 'info'
     };
     setNotifications(prev => [newNotification, ...prev]);
+    
+    // Server-generated notifications (for other users) will be fetched
+    // by the 30-second polling interval automatically
   };
 
   const authContextValue = useMemo(() => ({
