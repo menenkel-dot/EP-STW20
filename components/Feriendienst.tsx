@@ -55,7 +55,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
         const periodsData = await holidayPeriodsAPI.getAll();
         setPeriods(periodsData);
 
-        if (user?.role === UserRole.ADMIN) {
+        if (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) {
           const [bookingsData, childrenData, groupsData] = await Promise.all([
             holidayBookingsAPI.getAll(),
             childrenAPI.getAll(),
@@ -478,7 +478,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     );
   };
 
-  return user?.role === UserRole.ADMIN ? <AdminView /> : <ParentView />;
+  return user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG ? <AdminView /> : <ParentView />;
 };
 
 export default Feriendienst;
