@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import type { HolidayCareBooking, HolidayPeriod, Child, Group } from '../types';
 import { UserRole } from '../types';
@@ -95,6 +95,12 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
   const [newPeriodStart, setNewPeriodStart] = useState('');
   const [newPeriodEnd, setNewPeriodEnd] = useState('');
   const [newPeriodDeadline, setNewPeriodDeadline] = useState('');
+
+  // Stabilize callbacks to prevent re-renders
+  const handleSetNewPeriodName = useCallback((value: string) => setNewPeriodName(value), []);
+  const handleSetNewPeriodStart = useCallback((value: string) => setNewPeriodStart(value), []);
+  const handleSetNewPeriodEnd = useCallback((value: string) => setNewPeriodEnd(value), []);
+  const handleSetNewPeriodDeadline = useCallback((value: string) => setNewPeriodDeadline(value), []);
   
   // Admin filter state
   const [filterName, setFilterName] = useState('');
@@ -438,13 +444,13 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
         onClose={() => setPeriodModalOpen(false)}
         editingPeriod={editingPeriod}
         newPeriodName={newPeriodName}
-        setNewPeriodName={setNewPeriodName}
+        setNewPeriodName={handleSetNewPeriodName}
         newPeriodStart={newPeriodStart}
-        setNewPeriodStart={setNewPeriodStart}
+        setNewPeriodStart={handleSetNewPeriodStart}
         newPeriodEnd={newPeriodEnd}
-        setNewPeriodEnd={setNewPeriodEnd}
+        setNewPeriodEnd={handleSetNewPeriodEnd}
         newPeriodDeadline={newPeriodDeadline}
-        setNewPeriodDeadline={setNewPeriodDeadline}
+        setNewPeriodDeadline={handleSetNewPeriodDeadline}
         onSave={handleSavePeriod}
       />
     </div>
