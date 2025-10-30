@@ -12,6 +12,124 @@ interface AbwesenheitProps {
   addNotification: (message: string) => void;
 }
 
+interface ParentViewProps {
+  activeChild: Child | null;
+  absences: Absence[];
+  isLoading: boolean;
+  reason: AbsenceReason;
+  setReason: (reason: AbsenceReason) => void;
+  startDate: string;
+  setStartDate: (date: string) => void;
+  endDate: string;
+  setEndDate: (date: string) => void;
+  symptoms: string;
+  setSymptoms: (symptoms: string) => void;
+  handleReportAbsence: () => void;
+  handleDeleteAbsence: (id: number) => void;
+}
+
+const ParentViewComponent: React.FC<ParentViewProps> = React.memo(({ 
+  activeChild, absences, isLoading, reason, setReason, startDate, setStartDate,
+  endDate, setEndDate, symptoms, setSymptoms, handleReportAbsence, handleDeleteAbsence
+}) => {
+  if (!activeChild) {
+    return (
+      <div>
+        <h1 className="text-3xl font-bold text-gray-800">Abwesenheit melden</h1>
+        <p className="mt-4 text-gray-600">Bitte wählen Sie ein Kind aus dem Header-Menü aus, um eine Abwesenheit zu melden.</p>
+      </div>
+    );
+  }
+
+  const myAbsences = absences.filter(a => a.childId === activeChild.id);
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-800">Abwesenheit für {activeChild.name} melden</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+        <Card>
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Neue Meldung</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Grund der Abwesenheit</label>
+                <div className="mt-2 flex space-x-4">
+                  <label className="flex items-center">
+                    <input type="radio" value="krank" checked={reason === 'krank'} onChange={() => setReason('krank')} className="form-radio h-4 w-4 text-cyan-600"/>
+                    <span className="ml-2 text-gray-700">Krankheit</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input type="radio" value="sonstige" checked={reason === 'sonstige'} onChange={() => setReason('sonstige')} className="form-radio h-4 w-4 text-cyan-600"/>
+                    <span className="ml-2 text-gray-700">Sonstige</span>
+                  </label>
+                </div>
+              </div>
+              {reason === 'krank' && (
+                <div>
+                  <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700">Symptome (Pflichtfeld)</label>
+                  <textarea id="symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                </div>
+              )}
+              {reason === 'sonstige' && (
+                <div>
+                  <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700">Grund (z.B. Arzttermin)</label>
+                  <textarea id="symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Von</label>
+                  <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                </div>
+                <div>
+                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Bis (einschließlich)</label>
+                  <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                </div>
+              </div>
+              <div className="text-right pt-2">
+                <Button onClick={handleReportAbsence}>Meldung absenden</Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Gemeldete Abwesenheiten</h2>
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+              </div>
+            ) : myAbsences.length > 0 ? (
+              <ul className="space-y-3 max-h-96 overflow-y-auto">
+                {myAbsences.map(a => (
+                  <li key={a.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-start">
+                    <div>
+                      <p className="font-semibold">{formatDate(a.startDate)} - {formatDate(a.endDate)}</p>
+                      <p className="text-sm text-gray-700">Grund: <span className="capitalize">{a.reason === 'krank' ? 'Krankheit' : 'Sonstiges'}</span></p>
+                      {a.symptoms && <p className="text-sm text-gray-500">Details: {a.symptoms}</p>}
+                    </div>
+                    <button 
+                      onClick={() => handleDeleteAbsence(a.id)} 
+                      className="ml-4 text-gray-400 hover:text-red-600 focus:outline-none"
+                      title="Meldung löschen"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-gray-500">Für {activeChild.name} wurden noch keine Abwesenheiten gemeldet.</p>
+            )}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+});
+
 const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const { user, activeChild } = useAuth();
     const [absences, setAbsences] = useState<Absence[]>([]);
@@ -137,104 +255,6 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     };
 
 
-    const ParentView = () => {
-        if (!activeChild) {
-            return (
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-800">Abwesenheit melden</h1>
-                    <p className="mt-4 text-gray-600">Bitte wählen Sie ein Kind aus dem Header-Menü aus, um eine Abwesenheit zu melden.</p>
-                </div>
-            );
-        }
-
-        const myAbsences = absences.filter(a => a.childId === activeChild.id);
-
-        return (
-            <div>
-                <h1 className="text-3xl font-bold text-gray-800">Abwesenheit für {activeChild.name} melden</h1>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-                    <Card>
-                        <div className="p-6">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Neue Meldung</h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700">Grund der Abwesenheit</label>
-                                    <div className="mt-2 flex space-x-4">
-                                        <label className="flex items-center">
-                                            <input type="radio" value="krank" checked={reason === 'krank'} onChange={() => setReason('krank')} className="form-radio h-4 w-4 text-cyan-600"/>
-                                            <span className="ml-2 text-gray-700">Krankheit</span>
-                                        </label>
-                                        <label className="flex items-center">
-                                            <input type="radio" value="sonstige" checked={reason === 'sonstige'} onChange={() => setReason('sonstige')} className="form-radio h-4 w-4 text-cyan-600"/>
-                                            <span className="ml-2 text-gray-700">Sonstige</span>
-                                        </label>
-                                    </div>
-                                </div>
-                                {reason === 'krank' && (
-                                    <div>
-                                        <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700">Symptome (Pflichtfeld)</label>
-                                        <textarea id="symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
-                                    </div>
-                                )}
-                                 {reason === 'sonstige' && (
-                                    <div>
-                                        <label htmlFor="symptoms" className="block text-sm font-medium text-gray-700">Grund (z.B. Arzttermin)</label>
-                                        <textarea id="symptoms" value={symptoms} onChange={e => setSymptoms(e.target.value)} rows={3} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
-                                    </div>
-                                )}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Von</label>
-                                        <input type="date" id="startDate" value={startDate} onChange={e => setStartDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
-                                    </div>
-                                    <div>
-                                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Bis (einschließlich)</label>
-                                        <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} min={startDate} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
-                                    </div>
-                                </div>
-                                <div className="text-right pt-2">
-                                    <Button onClick={handleReportAbsence}>Meldung absenden</Button>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                    <Card>
-                        <div className="p-6">
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">Gemeldete Abwesenheiten</h2>
-                             {isLoading ? (
-                                <div className="flex justify-center py-8">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-                                </div>
-                             ) : myAbsences.length > 0 ? (
-                                <ul className="space-y-3 max-h-96 overflow-y-auto">
-                                    {myAbsences.map(a => (
-                                        <li key={a.id} className="p-3 bg-gray-50 rounded-lg flex justify-between items-start">
-                                            <div>
-                                                <p className="font-semibold">{formatDate(a.startDate)} - {formatDate(a.endDate)}</p>
-                                                <p className="text-sm text-gray-700">Grund: <span className="capitalize">{a.reason === 'krank' ? 'Krankheit' : 'Sonstiges'}</span></p>
-                                                {a.symptoms && <p className="text-sm text-gray-500">Details: {a.symptoms}</p>}
-                                            </div>
-                                            <button 
-                                                onClick={() => handleDeleteAbsence(a.id)} 
-                                                className="ml-4 text-gray-400 hover:text-red-600 focus:outline-none"
-                                                title="Meldung löschen"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
-                                                </svg>
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                             ) : (
-                                <p className="text-gray-500">Für {activeChild.name} wurden noch keine Abwesenheiten gemeldet.</p>
-                             )}
-                        </div>
-                    </Card>
-                </div>
-            </div>
-        );
-    };
 
     // Gefilterte Abwesenheiten mit useMemo
     const filteredAbsences = React.useMemo(() => {
@@ -398,7 +418,25 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
         );
     };
 
-    return (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) ? <AdminView /> : <ParentView />;
+    return (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) ? (
+        <AdminView />
+    ) : (
+        <ParentViewComponent
+            activeChild={activeChild}
+            absences={absences}
+            isLoading={isLoading}
+            reason={reason}
+            setReason={setReason}
+            startDate={startDate}
+            setStartDate={setStartDate}
+            endDate={endDate}
+            setEndDate={setEndDate}
+            symptoms={symptoms}
+            setSymptoms={setSymptoms}
+            handleReportAbsence={handleReportAbsence}
+            handleDeleteAbsence={handleDeleteAbsence}
+        />
+    );
 };
 
 export default Abwesenheit;
