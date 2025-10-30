@@ -9,6 +9,69 @@ import { holidayPeriodsAPI, holidayBookingsAPI, childrenAPI, groupsAPI } from '.
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+const PeriodFormModal = React.memo<{
+  isOpen: boolean;
+  onClose: () => void;
+  editingPeriod: HolidayPeriod | null;
+  newPeriodName: string;
+  setNewPeriodName: (value: string) => void;
+  newPeriodStart: string;
+  setNewPeriodStart: (value: string) => void;
+  newPeriodEnd: string;
+  setNewPeriodEnd: (value: string) => void;
+  newPeriodDeadline: string;
+  setNewPeriodDeadline: (value: string) => void;
+  onSave: () => void;
+}>(({ isOpen, onClose, editingPeriod, newPeriodName, setNewPeriodName, newPeriodStart, setNewPeriodStart, newPeriodEnd, setNewPeriodEnd, newPeriodDeadline, setNewPeriodDeadline, onSave }) => (
+  <Modal isOpen={isOpen} onClose={onClose} title={editingPeriod ? 'Zeitraum bearbeiten' : 'Neuen Ferienzeitraum erstellen'}>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Name</label>
+        <input 
+          type="text" 
+          value={newPeriodName} 
+          onChange={e => setNewPeriodName(e.target.value)} 
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Startdatum</label>
+          <input 
+            type="date" 
+            value={newPeriodStart} 
+            onChange={e => setNewPeriodStart(e.target.value)} 
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Enddatum</label>
+          <input 
+            type="date" 
+            value={newPeriodEnd} 
+            onChange={e => setNewPeriodEnd(e.target.value)} 
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+          />
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Anmeldefrist</label>
+        <input 
+          type="date" 
+          value={newPeriodDeadline} 
+          onChange={e => setNewPeriodDeadline(e.target.value)} 
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+        />
+      </div>
+      <div className="flex justify-end pt-4">
+        <Button onClick={onSave}>
+          {editingPeriod ? 'Änderungen speichern' : 'Erstellen'}
+        </Button>
+      </div>
+    </div>
+  </Modal>
+));
+
 interface FeriendienstProps {
   addNotification: (message: string) => void;
 }
@@ -370,17 +433,20 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
         </>
       )}
 
-      <Modal isOpen={isPeriodModalOpen} onClose={() => setPeriodModalOpen(false)} title={editingPeriod ? 'Zeitraum bearbeiten' : 'Neuen Ferienzeitraum erstellen'}>
-        <div className="space-y-4">
-          <div><label className="block text-sm font-medium text-gray-700">Name</label><input type="text" value={newPeriodName} onChange={e => setNewPeriodName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700">Startdatum</label><input type="date" value={newPeriodStart} onChange={e => setNewPeriodStart(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-            <div><label className="block text-sm font-medium text-gray-700">Enddatum</label><input type="date" value={newPeriodEnd} onChange={e => setNewPeriodEnd(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-          </div>
-          <div><label className="block text-sm font-medium text-gray-700">Anmeldefrist</label><input type="date" value={newPeriodDeadline} onChange={e => setNewPeriodDeadline(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
-          <div className="flex justify-end pt-4"><Button onClick={handleSavePeriod}>{editingPeriod ? 'Änderungen speichern' : 'Erstellen'}</Button></div>
-        </div>
-      </Modal>
+      <PeriodFormModal
+        isOpen={isPeriodModalOpen}
+        onClose={() => setPeriodModalOpen(false)}
+        editingPeriod={editingPeriod}
+        newPeriodName={newPeriodName}
+        setNewPeriodName={setNewPeriodName}
+        newPeriodStart={newPeriodStart}
+        setNewPeriodStart={setNewPeriodStart}
+        newPeriodEnd={newPeriodEnd}
+        setNewPeriodEnd={setNewPeriodEnd}
+        newPeriodDeadline={newPeriodDeadline}
+        setNewPeriodDeadline={setNewPeriodDeadline}
+        onSave={handleSavePeriod}
+      />
     </div>
   );
   
