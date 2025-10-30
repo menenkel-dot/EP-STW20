@@ -16,6 +16,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   getAllUsers(): Promise<User[]>;
+  getAllParents(): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
   getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
   getParentsByGroupId(groupId: number): Promise<Pick<User, 'id' | 'name' | 'role'>[]>;
   getStaffByGroupIds(groupIds: number[]): Promise<Pick<User, 'id' | 'name' | 'role' | 'assignedGroupId'>[]>;
@@ -94,6 +95,7 @@ export interface IStorage {
   getAllNotifications(userId: number): Promise<Notification[]>;
   createNotification(insertNotification: InsertNotification): Promise<Notification>;
   markNotificationAsRead(id: number): Promise<void>;
+  markNotificationAsUnread(id: number): Promise<void>;
   deleteNotification(id: number): Promise<boolean>;
   
   // Settings Operations
@@ -136,6 +138,14 @@ export class DatabaseStorage implements IStorage {
     );
     
     return usersWithChildren;
+  }
+
+  async getAllParents(): Promise<Pick<User, 'id' | 'name' | 'role'>[]> {
+    return db.select({
+      id: users.id,
+      name: users.name,
+      role: users.role
+    }).from(users).where(eq(users.role, 'parent'));
   }
 
   async getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]> {
@@ -567,6 +577,13 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(notifications)
       .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  async markNotificationAsUnread(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: false })
       .where(eq(notifications.id, id));
   }
 

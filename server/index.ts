@@ -692,6 +692,37 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
       groupIds: groupIds ? JSON.stringify(groupIds) : null
     });
 
+    // Benachrichtigungen an betroffene Eltern senden
+    try {
+      let parentsToNotify: number[] = [];
+      
+      if (!groupIds || groupIds.length === 0) {
+        // Keine Gruppen ausgewählt = alle Eltern benachrichtigen
+        const parents = await storage.getAllParents();
+        parentsToNotify = parents.map(p => p.id);
+      } else {
+        // Nur Eltern mit Kindern in den ausgewählten Gruppen
+        const parentsSet = new Set<number>();
+        for (const groupId of groupIds) {
+          const parents = await storage.getParentsByGroupId(groupId);
+          parents.forEach(p => parentsSet.add(p.id));
+        }
+        parentsToNotify = Array.from(parentsSet);
+      }
+
+      const notificationPromises = parentsToNotify.map(parentId =>
+        storage.createNotification({
+          userId: parentId,
+          message: `Neue Veranstaltung: ${title} am ${date} um ${time}`,
+          type: 'info'
+        })
+      );
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating event notifications:', notifError);
+    }
+
     res.status(201).json(event);
   } catch (error) {
     console.error('Create event error:', error);
@@ -816,6 +847,37 @@ app.post('/api/posts', authenticateToken, async (req: AuthRequest, res: Response
       groupIds: groupIds ? JSON.stringify(groupIds) : null
     });
 
+    // Benachrichtigungen an betroffene Eltern senden
+    try {
+      let parentsToNotify: number[] = [];
+      
+      if (!groupIds || groupIds.length === 0) {
+        // Keine Gruppen ausgewählt = alle Eltern benachrichtigen
+        const parents = await storage.getAllParents();
+        parentsToNotify = parents.map(p => p.id);
+      } else {
+        // Nur Eltern mit Kindern in den ausgewählten Gruppen
+        const parentsSet = new Set<number>();
+        for (const groupId of groupIds) {
+          const parents = await storage.getParentsByGroupId(groupId);
+          parents.forEach(p => parentsSet.add(p.id));
+        }
+        parentsToNotify = Array.from(parentsSet);
+      }
+
+      const notificationPromises = parentsToNotify.map(parentId =>
+        storage.createNotification({
+          userId: parentId,
+          message: `Neue Elternpost: ${title}`,
+          type: 'info'
+        })
+      );
+
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating post notifications:', notifError);
+    }
+
     res.status(201).json(post);
   } catch (error) {
     console.error('Create post error:', error);
@@ -906,6 +968,23 @@ app.post('/api/holiday-periods', authenticateToken, async (req: AuthRequest, res
       endDate,
       deadline
     });
+
+    // Benachrichtigungen an alle Eltern senden
+    try {
+      const parents = await storage.getAllParents();
+      
+      const notificationPromises = parents.map(parent =>
+        storage.createNotification({
+          userId: parent.id,
+          message: `Neuer Feriendienst-Zeitraum: ${name} (Frist: ${deadline})`,
+          type: 'info'
+        })
+      );
+      
+      await Promise.all(notificationPromises);
+    } catch (notifError) {
+      console.error('Error creating holiday period notifications:', notifError);
+    }
 
     res.status(201).json(period);
   } catch (error) {
@@ -1482,6 +1561,23 @@ app.put('/api/notifications/:id/read', authenticateToken, async (req: AuthReques
   }
 });
 
+// Mark notification as unread
+app.put('/api/notifications/:id/unread', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const id = parseInt(req.params.id);
+    await storage.markNotificationAsUnread(id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Mark notification as unread error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // Delete notification
 app.delete('/api/notifications/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -1547,6 +1643,48 @@ app.put('/api/settings/:key', authenticateToken, async (req: AuthRequest, res: R
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
+
+// ==================== DAILY DEADLINE CHECK ====================
+
+// Funktion zur Prüfung von Feriendienstfristen (1 Tag vor Ablauf)
+async function checkHolidayDeadlines() {
+  try {
+    const periods = await storage.getAllHolidayPeriods();
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    
+    for (const period of periods) {
+      // Prüfe ob die Deadline morgen ist
+      if (period.deadline === tomorrowStr) {
+        // Hole alle Eltern
+        const parents = await storage.getAllParents();
+        
+        // Erstelle Benachrichtigungen für alle Eltern
+        const notificationPromises = parents.map(parent =>
+          storage.createNotification({
+            userId: parent.id,
+            message: `Erinnerung: Die Frist für "${period.name}" läuft morgen ab!`,
+            type: 'alert'
+          })
+        );
+        
+        await Promise.all(notificationPromises);
+        console.log(`📅 Frist-Erinnerungen für "${period.name}" versendet`);
+      }
+    }
+  } catch (error) {
+    console.error('Error checking holiday deadlines:', error);
+  }
+}
+
+// Starte täglichen Check beim Server-Start
+checkHolidayDeadlines();
+
+// Wiederhole Check alle 24 Stunden (86400000 ms)
+setInterval(checkHolidayDeadlines, 24 * 60 * 60 * 1000);
 
 // Start Server
 app.listen(PORT, () => {

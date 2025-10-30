@@ -469,6 +469,11 @@ export const notificationsAPI = {
     return response.data;
   },
 
+  markAsUnread: async (id: number) => {
+    const response = await apiClient.put(`/notifications/${id}/unread`);
+    return response.data;
+  },
+
   delete: async (id: number) => {
     const response = await apiClient.delete(`/notifications/${id}`);
     return response.data;
