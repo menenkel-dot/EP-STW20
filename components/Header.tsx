@@ -140,7 +140,11 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
                                 className={`flex items-center px-4 py-3 hover:bg-gray-100 transition-colors duration-150 ${activeChild?.id === child.id ? 'bg-cyan-50' : ''}`}
                                 role="menuitem"
                             >
-                                <img src={child.avatarUrl} className="h-8 w-8 rounded-full object-cover mr-3" alt={child.name} />
+                                <div className="h-8 w-8 rounded-full bg-cyan-600 flex items-center justify-center mr-3">
+                                  <span className="text-white font-bold text-sm">
+                                    {getInitials(child.name)}
+                                  </span>
+                                </div>
                                 <span className={`text-sm ${activeChild?.id === child.id ? 'font-semibold text-cyan-800' : 'text-gray-700'}`}>{child.name}</span>
                             </a>
                         ))}
