@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import Modal from './Modal';
+import Datenschutz from './Datenschutz';
+import Impressum from './Impressum';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showDatenschutz, setShowDatenschutz] = useState(false);
+  const [showImpressum, setShowImpressum] = useState(false);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -153,7 +158,42 @@ const Login: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Footer mit Links zu Impressum und Datenschutz */}
+        <div className="mt-6 text-center text-sm text-gray-600">
+          <button
+            onClick={() => setShowDatenschutz(true)}
+            className="hover:text-cyan-600 underline"
+          >
+            Datenschutzerklärung
+          </button>
+          <span className="mx-2">•</span>
+          <button
+            onClick={() => setShowImpressum(true)}
+            className="hover:text-cyan-600 underline"
+          >
+            Impressum
+          </button>
+        </div>
       </div>
+
+      {/* Datenschutz Modal */}
+      {showDatenschutz && (
+        <Modal isOpen={showDatenschutz} onClose={() => setShowDatenschutz(false)} title="Datenschutzerklärung">
+          <div className="overflow-y-auto max-h-[70vh]">
+            <Datenschutz />
+          </div>
+        </Modal>
+      )}
+
+      {/* Impressum Modal */}
+      {showImpressum && (
+        <Modal isOpen={showImpressum} onClose={() => setShowImpressum(false)} title="Impressum">
+          <div className="overflow-y-auto max-h-[70vh]">
+            <Impressum />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 };
