@@ -25,6 +25,12 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [symptoms, setSymptoms] = useState('');
 
+    // Filter state for admin view
+    const [filterChild, setFilterChild] = useState<string>('');
+    const [filterGroup, setFilterGroup] = useState<string>('');
+    const [filterReason, setFilterReason] = useState<string>('');
+    const [filterDate, setFilterDate] = useState<string>('');
+
     const getChildById = (childId: number): Child | undefined => children.find(c => c.id === childId);
     const getGroupName = (groupId: number): string => groups.find(g => g.id === groupId)?.name || 'N/A';
 
@@ -230,55 +236,166 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
         );
     };
 
-    const AdminView = () => (
-        <div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">Übersicht der Abwesenheiten</h1>
-            <Card>
-                <div className="overflow-x-auto">
-                    {isLoading ? (
-                        <div className="flex justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-                        </div>
-                    ) : (
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gruppe</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details / Symptome</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gemeldet am</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                           {absences.sort((a,b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()).map(absence => {
-                                const child = getChildById(absence.childId);
-                                const groupName = child ? getGroupName(child.groupId) : 'N/A';
-                                return (
-                                    <tr key={absence.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{child?.name || 'Unbekannt'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{groupName}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(absence.startDate)} - {formatDate(absence.endDate)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${absence.reason === 'krank' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                {absence.reason === 'krank' ? 'Krank' : 'Sonstige'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{absence.symptoms || '-'}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(absence.reportedAt).toLocaleString('de-DE')}</td>
-                                    </tr>
-                                )
-                           })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-            </Card>
-        </div>
-    );
+    const AdminView = () => {
+        // Gefilterte Abwesenheiten
+        const filteredAbsences = absences.filter(absence => {
+            const child = getChildById(absence.childId);
+            const groupName = child ? getGroupName(child.groupId) : 'N/A';
+            
+            // Kind-Filter
+            if (filterChild && child && !child.name.toLowerCase().includes(filterChild.toLowerCase())) {
+                return false;
+            }
+            
+            // Gruppen-Filter
+            if (filterGroup && !groupName.toLowerCase().includes(filterGroup.toLowerCase())) {
+                return false;
+            }
+            
+            // Grund-Filter
+            if (filterReason && absence.reason !== filterReason) {
+                return false;
+            }
+            
+            // Datum-Filter (prüft ob das gefilterte Datum im Zeitraum liegt)
+            if (filterDate) {
+                const filterDateObj = new Date(filterDate);
+                const startDateObj = new Date(absence.startDate);
+                const endDateObj = new Date(absence.endDate);
+                if (filterDateObj < startDateObj || filterDateObj > endDateObj) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
 
-    return user?.role === UserRole.ADMIN ? <AdminView /> : <ParentView />;
+        return (
+            <div>
+                <h1 className="text-3xl font-bold text-gray-800 mb-6">Übersicht der Abwesenheiten</h1>
+                
+                {/* Filter Section */}
+                <Card>
+                    <div className="p-4 bg-gray-50 border-b border-gray-200">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">Filter</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Kind</label>
+                                <input
+                                    type="text"
+                                    value={filterChild}
+                                    onChange={(e) => setFilterChild(e.target.value)}
+                                    placeholder="Name eingeben..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Gruppe</label>
+                                <input
+                                    type="text"
+                                    value={filterGroup}
+                                    onChange={(e) => setFilterGroup(e.target.value)}
+                                    placeholder="Gruppe eingeben..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Grund</label>
+                                <select
+                                    value={filterReason}
+                                    onChange={(e) => setFilterReason(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                >
+                                    <option value="">Alle</option>
+                                    <option value="krank">Krank</option>
+                                    <option value="sonstige">Sonstige</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Datum (im Zeitraum)</label>
+                                <input
+                                    type="date"
+                                    value={filterDate}
+                                    onChange={(e) => setFilterDate(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                />
+                            </div>
+                        </div>
+                        {(filterChild || filterGroup || filterReason || filterDate) && (
+                            <div className="mt-3 flex items-center justify-between">
+                                <p className="text-sm text-gray-600">
+                                    {filteredAbsences.length} von {absences.length} Abwesenheiten
+                                </p>
+                                <button
+                                    onClick={() => {
+                                        setFilterChild('');
+                                        setFilterGroup('');
+                                        setFilterReason('');
+                                        setFilterDate('');
+                                    }}
+                                    className="text-sm text-cyan-600 hover:text-cyan-800 font-medium"
+                                >
+                                    Filter zurücksetzen
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </Card>
+
+                {/* Table */}
+                <Card>
+                    <div className="overflow-x-auto">
+                        {isLoading ? (
+                            <div className="flex justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
+                            </div>
+                        ) : filteredAbsences.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                                {absences.length === 0 
+                                    ? 'Keine Abwesenheiten gemeldet.' 
+                                    : 'Keine Abwesenheiten gefunden, die den Filterkriterien entsprechen.'}
+                            </div>
+                        ) : (
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gruppe</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details / Symptome</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gemeldet am</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                               {filteredAbsences.sort((a,b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()).map(absence => {
+                                    const child = getChildById(absence.childId);
+                                    const groupName = child ? getGroupName(child.groupId) : 'N/A';
+                                    return (
+                                        <tr key={absence.id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{child?.name || 'Unbekannt'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{groupName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(absence.startDate)} - {formatDate(absence.endDate)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${absence.reason === 'krank' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                    {absence.reason === 'krank' ? 'Krank' : 'Sonstige'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{absence.symptoms || '-'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(absence.reportedAt).toLocaleString('de-DE')}</td>
+                                        </tr>
+                                    )
+                               })}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </Card>
+            </div>
+        );
+    };
+
+    return (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) ? <AdminView /> : <ParentView />;
 };
 
 export default Abwesenheit;
