@@ -121,8 +121,21 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return db.select().from(users);
+  async getAllUsers(): Promise<any[]> {
+    const allUsers = await db.select().from(users);
+    
+    // Für jeden Benutzer die Kinder laden
+    const usersWithChildren = await Promise.all(
+      allUsers.map(async (user) => {
+        const userChildren = await this.getChildrenByParentId(user.id);
+        return {
+          ...user,
+          children: userChildren
+        };
+      })
+    );
+    
+    return usersWithChildren;
   }
 
   async getStaffUsers(): Promise<Pick<User, 'id' | 'name' | 'role'>[]> {
