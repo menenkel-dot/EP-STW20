@@ -9,6 +9,204 @@ import { holidayPeriodsAPI, holidayBookingsAPI, childrenAPI, groupsAPI } from '.
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+// Top-level component to prevent re-mounting
+const AdminView: React.FC<{
+  isLoading: boolean;
+  periods: HolidayPeriod[];
+  selectedPeriod: HolidayPeriod | null;
+  setSelectedPeriod: (period: HolidayPeriod | null) => void;
+  handleOpenPeriodModal: (period?: HolidayPeriod | null) => void;
+  handleDeletePeriod: (id: number) => void;
+  bookings: HolidayCareBooking[];
+  children: Child[];
+  groups: Group[];
+  filterName: string;
+  setFilterName: (value: string) => void;
+  filterGruppe: string;
+  setFilterGruppe: (value: string) => void;
+  filterBedarf: string;
+  setFilterBedarf: (value: string) => void;
+  filterMittagessen: string;
+  setFilterMittagessen: (value: string) => void;
+  resetFilters: () => void;
+  filteredBookings: HolidayCareBooking[];
+  getChildById: (id: number) => Child | undefined;
+  getGroupName: (id: number) => string;
+  isPeriodModalOpen: boolean;
+  setPeriodModalOpen: (value: boolean) => void;
+  editingPeriod: HolidayPeriod | null;
+  newPeriodName: string;
+  handleSetNewPeriodName: (value: string) => void;
+  newPeriodStart: string;
+  handleSetNewPeriodStart: (value: string) => void;
+  newPeriodEnd: string;
+  handleSetNewPeriodEnd: (value: string) => void;
+  newPeriodDeadline: string;
+  handleSetNewPeriodDeadline: (value: string) => void;
+  handleSavePeriod: () => void;
+}> = React.memo(({ 
+  isLoading,
+  periods,
+  selectedPeriod,
+  setSelectedPeriod,
+  handleOpenPeriodModal,
+  handleDeletePeriod,
+  bookings,
+  children,
+  groups,
+  filterName,
+  setFilterName,
+  filterGruppe,
+  setFilterGruppe,
+  filterBedarf,
+  setFilterBedarf,
+  filterMittagessen,
+  setFilterMittagessen,
+  resetFilters,
+  filteredBookings,
+  getChildById,
+  getGroupName,
+  isPeriodModalOpen,
+  setPeriodModalOpen,
+  editingPeriod,
+  newPeriodName,
+  handleSetNewPeriodName,
+  newPeriodStart,
+  handleSetNewPeriodStart,
+  newPeriodEnd,
+  handleSetNewPeriodEnd,
+  newPeriodDeadline,
+  handleSetNewPeriodDeadline,
+  handleSavePeriod
+}) => (
+  <div>
+    <div className="flex justify-between items-center mb-6">
+      <h1 className="text-3xl font-bold text-gray-800">Feriendienst Verwaltung</h1>
+      <Button onClick={() => handleOpenPeriodModal()}>+ Neuer Zeitraum</Button>
+    </div>
+
+    {isLoading ? (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
+      </div>
+    ) : (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {periods.map(p => (
+            <Card key={p.id} onClick={() => setSelectedPeriod(p)} className={`hover:bg-cyan-50 flex flex-col ${selectedPeriod?.id === p.id ? 'ring-2 ring-cyan-500' : ''}`}>
+              <div className="p-6 flex-grow">
+                <h2 className="text-xl font-bold text-gray-800">{p.name}</h2>
+                <p className="text-gray-600">{formatDate(p.startDate)} - {formatDate(p.endDate)}</p>
+                <p className="text-sm text-red-600 mt-1">Anmeldefrist: {formatDate(p.deadline)}</p>
+              </div>
+              <div className="p-4 bg-gray-50 border-t flex justify-end space-x-2">
+                <Button onClick={(e) => { e.stopPropagation(); handleOpenPeriodModal(p); }} variant="secondary">Bearbeiten</Button>
+                <Button onClick={(e) => { e.stopPropagation(); handleDeletePeriod(p.id); }} variant="danger">Löschen</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      
+        {selectedPeriod && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Buchungen für: {selectedPeriod.name}</h2>
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg flex flex-wrap items-end gap-4 border">
+              <div>
+                <label htmlFor="filter-name" className="block text-sm font-medium text-gray-700">Name des Kindes</label>
+                <input type="text" id="filter-name" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Suchen..." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"/>
+              </div>
+              <div>
+                <label htmlFor="filter-group" className="block text-sm font-medium text-gray-700">Gruppe</label>
+                <select id="filter-group" value={filterGruppe} onChange={e => setFilterGruppe(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                  <option value="all">Alle Gruppen</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filter-bedarf" className="block text-sm font-medium text-gray-700">Bedarf</label>
+                <select id="filter-bedarf" value={filterBedarf} onChange={e => setFilterBedarf(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                  <option value="all">Alle</option>
+                  <option value="yes">Ja</option>
+                  <option value="no">Nein</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="filter-mittagessen" className="block text-sm font-medium text-gray-700">Mittagessen</label>
+                <select id="filter-mittagessen" value={filterMittagessen} onChange={e => setFilterMittagessen(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                  <option value="all">Alle</option>
+                  <option value="yes">Ja</option>
+                  <option value="no">Nein</option>
+                </select>
+              </div>
+              <div>
+                <Button onClick={resetFilters} variant="secondary">Filter zurücksetzen</Button>
+              </div>
+            </div>
+            <Card>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind (Gruppe)</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bedarf</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uhrzeit</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mittagessen</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredBookings.length > 0 ? filteredBookings.map(b => {
+                      const child = getChildById(b.childId);
+                      const groupName = child ? getGroupName(child.groupId) : 'N/A';
+                      return (
+                        <tr key={b.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {child?.name || 'Unbekanntes Kind'}
+                            <span className="ml-1 text-gray-500">({groupName})</span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            {b.needsCare ? 
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ja</span> : 
+                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Nein</span>}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${formatDate(b.bookedFromDate!)} - ${formatDate(b.bookedToDate!)}` : '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${b.bookedFromTime} - ${b.bookedToTime}` : '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? (b.withLunch ? 'Ja' : 'Nein') : '-'}</td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={5} className="text-center py-10 text-gray-500">
+                          Keine Buchungen für die aktuellen Filter gefunden.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )}
+      </>
+    )}
+
+    <PeriodFormModal
+      isOpen={isPeriodModalOpen}
+      onClose={() => setPeriodModalOpen(false)}
+      editingPeriod={editingPeriod}
+      newPeriodName={newPeriodName}
+      setNewPeriodName={handleSetNewPeriodName}
+      newPeriodStart={newPeriodStart}
+      setNewPeriodStart={handleSetNewPeriodStart}
+      newPeriodEnd={newPeriodEnd}
+      setNewPeriodEnd={handleSetNewPeriodEnd}
+      newPeriodDeadline={newPeriodDeadline}
+      setNewPeriodDeadline={handleSetNewPeriodDeadline}
+      onSave={handleSavePeriod}
+    />
+  </div>
+));
+
 const PeriodFormModal = React.memo<{
   isOpen: boolean;
   onClose: () => void;
@@ -320,141 +518,12 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
       });
   }, [bookings, selectedPeriod, filterName, filterGruppe, filterBedarf, filterMittagessen]);
 
-  const resetFilters = () => {
+  const resetFilters = useCallback(() => {
     setFilterName('');
     setFilterGruppe('all');
     setFilterBedarf('all');
     setFilterMittagessen('all');
-  };
-
-  const AdminView = () => (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Feriendienst Verwaltung</h1>
-        <Button onClick={() => handleOpenPeriodModal()}>+ Neuer Zeitraum</Button>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {periods.map(p => (
-              <Card key={p.id} onClick={() => setSelectedPeriod(p)} className={`hover:bg-cyan-50 flex flex-col ${selectedPeriod?.id === p.id ? 'ring-2 ring-cyan-500' : ''}`}>
-                <div className="p-6 flex-grow">
-                  <h2 className="text-xl font-bold text-gray-800">{p.name}</h2>
-                  <p className="text-gray-600">{formatDate(p.startDate)} - {formatDate(p.endDate)}</p>
-                  <p className="text-sm text-red-600 mt-1">Anmeldefrist: {formatDate(p.deadline)}</p>
-                </div>
-                <div className="p-4 bg-gray-50 border-t flex justify-end space-x-2">
-                  <Button onClick={(e) => { e.stopPropagation(); handleOpenPeriodModal(p); }} variant="secondary">Bearbeiten</Button>
-                  <Button onClick={(e) => { e.stopPropagation(); handleDeletePeriod(p.id); }} variant="danger">Löschen</Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        
-          {selectedPeriod && (
-            <div className="mt-8">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Buchungen für: {selectedPeriod.name}</h2>
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg flex flex-wrap items-end gap-4 border">
-                <div>
-                  <label htmlFor="filter-name" className="block text-sm font-medium text-gray-700">Name des Kindes</label>
-                  <input type="text" id="filter-name" value={filterName} onChange={e => setFilterName(e.target.value)} placeholder="Suchen..." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"/>
-                </div>
-                <div>
-                  <label htmlFor="filter-group" className="block text-sm font-medium text-gray-700">Gruppe</label>
-                  <select id="filter-group" value={filterGruppe} onChange={e => setFilterGruppe(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
-                    <option value="all">Alle Gruppen</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="filter-bedarf" className="block text-sm font-medium text-gray-700">Bedarf</label>
-                  <select id="filter-bedarf" value={filterBedarf} onChange={e => setFilterBedarf(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
-                    <option value="all">Alle</option>
-                    <option value="yes">Ja</option>
-                    <option value="no">Nein</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="filter-mittagessen" className="block text-sm font-medium text-gray-700">Mittagessen</label>
-                  <select id="filter-mittagessen" value={filterMittagessen} onChange={e => setFilterMittagessen(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
-                    <option value="all">Alle</option>
-                    <option value="yes">Ja</option>
-                    <option value="no">Nein</option>
-                  </select>
-                </div>
-                <div>
-                  <Button onClick={resetFilters} variant="secondary">Filter zurücksetzen</Button>
-                </div>
-              </div>
-              <Card>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind (Gruppe)</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bedarf</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uhrzeit</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mittagessen</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredBookings.length > 0 ? filteredBookings.map(b => {
-                        const child = getChildById(b.childId);
-                        const groupName = child ? getGroupName(child.groupId) : 'N/A';
-                        return (
-                          <tr key={b.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {child?.name || 'Unbekanntes Kind'}
-                              <span className="ml-1 text-gray-500">({groupName})</span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              {b.needsCare ? 
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ja</span> : 
-                                <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Nein</span>}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${formatDate(b.bookedFromDate!)} - ${formatDate(b.bookedToDate!)}` : '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${b.bookedFromTime} - ${b.bookedToTime}` : '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? (b.withLunch ? 'Ja' : 'Nein') : '-'}</td>
-                          </tr>
-                        );
-                      }) : (
-                        <tr>
-                          <td colSpan={5} className="text-center py-10 text-gray-500">
-                            Keine Buchungen für die aktuellen Filter gefunden.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
-
-      <PeriodFormModal
-        isOpen={isPeriodModalOpen}
-        onClose={() => setPeriodModalOpen(false)}
-        editingPeriod={editingPeriod}
-        newPeriodName={newPeriodName}
-        setNewPeriodName={handleSetNewPeriodName}
-        newPeriodStart={newPeriodStart}
-        setNewPeriodStart={handleSetNewPeriodStart}
-        newPeriodEnd={newPeriodEnd}
-        setNewPeriodEnd={handleSetNewPeriodEnd}
-        newPeriodDeadline={newPeriodDeadline}
-        setNewPeriodDeadline={handleSetNewPeriodDeadline}
-        onSave={handleSavePeriod}
-      />
-    </div>
-  );
+  }, []);
   
   const ParentView = () => {
     if (!activeChild) {
@@ -550,7 +619,43 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     );
   };
 
-  return user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG ? <AdminView /> : <ParentView />;
+  return user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG ? (
+    <AdminView
+      isLoading={isLoading}
+      periods={periods}
+      selectedPeriod={selectedPeriod}
+      setSelectedPeriod={setSelectedPeriod}
+      handleOpenPeriodModal={handleOpenPeriodModal}
+      handleDeletePeriod={handleDeletePeriod}
+      bookings={bookings}
+      children={children}
+      groups={groups}
+      filterName={filterName}
+      setFilterName={setFilterName}
+      filterGruppe={filterGruppe}
+      setFilterGruppe={setFilterGruppe}
+      filterBedarf={filterBedarf}
+      setFilterBedarf={setFilterBedarf}
+      filterMittagessen={filterMittagessen}
+      setFilterMittagessen={setFilterMittagessen}
+      resetFilters={resetFilters}
+      filteredBookings={filteredBookings}
+      getChildById={getChildById}
+      getGroupName={getGroupName}
+      isPeriodModalOpen={isPeriodModalOpen}
+      setPeriodModalOpen={setPeriodModalOpen}
+      editingPeriod={editingPeriod}
+      newPeriodName={newPeriodName}
+      handleSetNewPeriodName={handleSetNewPeriodName}
+      newPeriodStart={newPeriodStart}
+      handleSetNewPeriodStart={handleSetNewPeriodStart}
+      newPeriodEnd={newPeriodEnd}
+      handleSetNewPeriodEnd={handleSetNewPeriodEnd}
+      newPeriodDeadline={newPeriodDeadline}
+      handleSetNewPeriodDeadline={handleSetNewPeriodDeadline}
+      handleSavePeriod={handleSavePeriod}
+    />
+  ) : <ParentView />;
 };
 
 export default Feriendienst;
