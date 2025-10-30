@@ -1117,6 +1117,15 @@ app.delete('/api/holiday-periods/:id', authenticateToken, async (req: AuthReques
 
 // ==================== HOLIDAY BOOKINGS ROUTES ====================
 
+// Helper function to map database booking fields to frontend expected fields
+const mapBookingToFrontend = (booking: any) => ({
+  ...booking,
+  bookedFromDate: booking.fromDate,
+  bookedToDate: booking.toDate,
+  bookedFromTime: booking.fromTime,
+  bookedToTime: booking.toTime
+});
+
 // Get all holiday bookings (admin and gruppenleitung)
 app.get('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -1127,7 +1136,7 @@ app.get('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, res
     // Admin can see all bookings
     if (req.user.role === 'admin') {
       const bookings = await storage.getAllHolidayBookings();
-      return res.json(bookings);
+      return res.json(bookings.map(mapBookingToFrontend));
     }
 
     // Gruppenleitung can see bookings for their assigned group
@@ -1137,7 +1146,7 @@ app.get('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, res
         return res.status(403).json({ error: 'Keine Gruppe zugewiesen' });
       }
       const bookings = await storage.getHolidayBookingsByGroupId(user.assignedGroupId);
-      return res.json(bookings);
+      return res.json(bookings.map(mapBookingToFrontend));
     }
 
     // Parents cannot access this endpoint
@@ -1157,7 +1166,7 @@ app.get('/api/holiday-bookings/period/:periodId', authenticateToken, async (req:
 
     const periodId = parseInt(req.params.periodId);
     const bookings = await storage.getHolidayBookingsByPeriodId(periodId);
-    res.json(bookings);
+    res.json(bookings.map(mapBookingToFrontend));
   } catch (error) {
     console.error('Get holiday bookings by period error:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -1184,7 +1193,7 @@ app.get('/api/holiday-bookings/child/:childId', authenticateToken, async (req: A
     }
 
     const bookings = await storage.getHolidayBookingsByChildId(childId);
-    res.json(bookings);
+    res.json(bookings.map(mapBookingToFrontend));
   } catch (error) {
     console.error('Get holiday bookings by child error:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -1225,7 +1234,7 @@ app.post('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, re
       withLunch: withLunch || false
     });
 
-    res.status(201).json(booking);
+    res.status(201).json(mapBookingToFrontend(booking));
   } catch (error) {
     console.error('Create holiday booking error:', error);
     res.status(500).json({ error: 'Serverfehler' });
@@ -1247,7 +1256,7 @@ app.put('/api/holiday-bookings/:id', authenticateToken, async (req: AuthRequest,
       return res.status(404).json({ error: 'Buchung nicht gefunden' });
     }
 
-    res.json(booking);
+    res.json(mapBookingToFrontend(booking));
   } catch (error) {
     console.error('Update holiday booking error:', error);
     res.status(500).json({ error: 'Serverfehler' });
