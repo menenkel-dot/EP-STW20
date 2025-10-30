@@ -210,14 +210,6 @@ const Veranstaltungen: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="mb-8">
-              <Calendar 
-                events={visibleEvents} 
-                onEventClick={handleEventClick}
-                userRole={user?.role || UserRole.PARENT}
-              />
-            </div>
-
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Alle Veranstaltungen</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -248,6 +240,15 @@ const Veranstaltungen: React.FC = () => {
               </div>
             </Card>
           ))}
+            </div>
+
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Kalenderansicht</h2>
+              <Calendar 
+                events={visibleEvents} 
+                onEventClick={handleEventClick}
+                userRole={user?.role || UserRole.PARENT}
+              />
             </div>
           </>
         )}
