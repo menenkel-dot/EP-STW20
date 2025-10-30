@@ -1518,15 +1518,15 @@ app.post('/api/contacts', authenticateToken, async (req: AuthRequest, res: Respo
 
     const { name, role, phone, email } = req.body;
 
-    if (!name || !role || !phone || !email) {
-      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    if (!name || !role) {
+      return res.status(400).json({ error: 'Name und Rolle sind Pflichtfelder' });
     }
 
     const contact = await storage.createContact({
       name,
       role,
-      phone,
-      email
+      phone: phone || '',
+      email: email || ''
     });
 
     res.status(201).json(contact);
