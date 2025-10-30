@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { storage } from './storage.js';
 import { db } from './db.js';
-import { users } from '../shared/schema.js';
+import { users, documents, holidayBookings, conversations, messages } from '../shared/schema.js';
 import { eq } from 'drizzle-orm';
 import { 
   generateToken, 
@@ -276,6 +276,71 @@ app.delete('/api/users/:id', authenticateToken, async (req: AuthRequest, res: Re
   } catch (error) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: 'Serverfehler beim Löschen des Benutzers' });
+  }
+});
+
+// Export user data (DSGVO - Recht auf Datenübertragbarkeit)
+app.get('/api/users/:id/export', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    
+    // Nur eigene Daten exportieren oder Admin
+    if (req.user?.userId !== userId && req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    // Sammle alle Benutzerdaten
+    const userChildren = await storage.getChildrenByParentId(userId);
+    const absences = await Promise.all(
+      userChildren.map(child => storage.getAbsencesByChildId(child.id))
+    );
+    const userDocuments = await db.select().from(documents).where(eq(documents.userId, userId));
+    const userHolidayBookings = await Promise.all(
+      userChildren.map(child => db.select().from(holidayBookings).where(eq(holidayBookings.childId, child.id)))
+    );
+    
+    // Nachrichten
+    const userConversations = await db.select().from(conversations);
+    const userMessages = await Promise.all(
+      userConversations.map(conv => {
+        const participantIds = JSON.parse(conv.participantIds);
+        if (participantIds.includes(userId)) {
+          return db.select().from(messages).where(eq(messages.conversationId, conv.id));
+        }
+        return Promise.resolve([]);
+      })
+    );
+
+    // Erstelle Export-Objekt
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      user: {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      },
+      children: userChildren,
+      absences: absences.flat(),
+      documents: userDocuments,
+      holidayBookings: userHolidayBookings.flat(),
+      messages: userMessages.flat()
+    };
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="datenexport-${user.username}-${new Date().toISOString().split('T')[0]}.json"`);
+    res.json(exportData);
+  } catch (error) {
+    console.error('Export user data error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Datenexport' });
   }
 });
 

@@ -81,6 +81,40 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
               <SidebarIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.28-1.25-.743-1.679M12 12a3 3 0 100-6 3 3 0 000 6zm-2 4h4a2 2 0 012 2v2H8v-2c0-1.105.9-2 2-2z" /></svg>} text="Verwaltung" />
             </a>
           )}
+          
+          <div className="border-t border-gray-200 mt-4 pt-4">
+            <p className="px-4 text-xs text-gray-500 uppercase font-semibold mb-2">Rechtliches</p>
+            <a
+              className={`flex items-center px-4 py-2 mt-1 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 text-sm ${
+                activeView === 'datenschutz' ? 'bg-cyan-100 text-cyan-800' : ''
+              }`}
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveView('datenschutz');
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span className="mx-3 font-medium">Datenschutz</span>
+            </a>
+            <a
+              className={`flex items-center px-4 py-2 mt-1 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 text-sm ${
+                activeView === 'impressum' ? 'bg-cyan-100 text-cyan-800' : ''
+              }`}
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveView('impressum');
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="mx-3 font-medium">Impressum</span>
+            </a>
+          </div>
         </nav>
       </aside>
     </>

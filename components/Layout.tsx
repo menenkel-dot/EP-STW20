@@ -11,6 +11,8 @@ import Nachrichten from './Nachrichten';
 import Verwaltung from './Verwaltung';
 import Abwesenheit from './Abwesenheit';
 import WeitereInfos from './WeitereInfos';
+import Datenschutz from './Datenschutz';
+import Impressum from './Impressum';
 
 interface LayoutProps {
   user: User;
@@ -43,6 +45,10 @@ const Layout: React.FC<LayoutProps> = ({ user, notifications, markNotificationAs
         return <Verwaltung />;
       case 'weitereInfos':
         return <WeitereInfos />;
+      case 'datenschutz':
+        return <Datenschutz />;
+      case 'impressum':
+        return <Impressum />;
       default:
         return <Dashboard setActiveView={setActiveView} />;
     }

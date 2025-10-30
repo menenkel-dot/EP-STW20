@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Notification } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import NotificationBell from './NotificationBell';
+import { usersAPI } from '../lib/client';
 
 interface HeaderProps {
   notifications: Notification[];
@@ -69,16 +70,39 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
           {isProfileMenuOpen && (
             <div 
               onMouseLeave={() => setProfileMenuOpen(false)}
-              className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-xl z-20"
+              className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-xl z-20"
               role="menu"
             >
+              <a
+                href="#"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await usersAPI.exportData(user.id);
+                    setProfileMenuOpen(false);
+                  } catch (error) {
+                    console.error('Fehler beim Datenexport:', error);
+                    alert('Fehler beim Datenexport. Bitte versuchen Sie es erneut.');
+                  }
+                }}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-cyan-500 hover:text-white"
+                role="menuitem"
+              >
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Daten exportieren
+                </div>
+              </a>
+              <div className="border-t border-gray-200"></div>
               <a
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
                   logout();
                 }}
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-cyan-500 hover:text-white rounded-md"
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-cyan-500 hover:text-white rounded-b-md"
                 role="menuitem"
               >
                 Abmelden

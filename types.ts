@@ -31,7 +31,7 @@ export interface Notification {
   type: 'info' | 'alert' | 'success';
 }
 
-export type View = 'dashboard' | 'elternpost' | 'veranstaltungen' | 'feriendienst' | 'dokumente' | 'nachrichten' | 'verwaltung' | 'abwesenheit' | 'weitereInfos';
+export type View = 'dashboard' | 'elternpost' | 'veranstaltungen' | 'feriendienst' | 'dokumente' | 'nachrichten' | 'verwaltung' | 'abwesenheit' | 'weitereInfos' | 'datenschutz' | 'impressum';
 
 export interface Post {
     id: number;

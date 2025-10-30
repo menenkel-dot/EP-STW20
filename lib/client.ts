@@ -141,6 +141,20 @@ export const usersAPI = {
     const response = await apiClient.delete(`/users/${id}`);
     return response.data;
   },
+  exportData: async (id: number) => {
+    const response = await apiClient.get(`/users/${id}/export`, {
+      responseType: 'blob',
+    });
+    const blob = new Blob([response.data], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `datenexport-${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
 };
 
 // ==================== CHILDREN API ====================
