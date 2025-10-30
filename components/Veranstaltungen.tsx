@@ -4,6 +4,7 @@ import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
+import Calendar from './Calendar';
 import { useAuth } from '../hooks/useAuth';
 import { eventsAPI, groupsAPI } from '../lib/client';
 
@@ -14,6 +15,8 @@ const Veranstaltungen: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [viewingEvent, setViewingEvent] = useState<Event | null>(null);
+  const [isViewModalOpen, setViewModalOpen] = useState(false);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -81,6 +84,20 @@ const Veranstaltungen: React.FC = () => {
 
   const handleCloseModal = () => {
     setModalOpen(false);
+  };
+
+  const handleEventClick = (event: Event) => {
+    if (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) {
+      handleOpenModal(event);
+    } else {
+      setViewingEvent(event);
+      setViewModalOpen(true);
+    }
+  };
+
+  const handleCloseViewModal = () => {
+    setViewModalOpen(false);
+    setViewingEvent(null);
   };
 
   const handleSaveEvent = async () => {
@@ -181,17 +198,29 @@ const Veranstaltungen: React.FC = () => {
     <>
       <div>
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Kommende Veranstaltungen</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Veranstaltungen</h1>
           {(user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) && (
             <Button onClick={() => handleOpenModal()}>+ Neue Veranstaltung</Button>
           )}
         </div>
+
         {isLoading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <>
+            <div className="mb-8">
+              <Calendar 
+                events={visibleEvents} 
+                onEventClick={handleEventClick}
+                userRole={user?.role || UserRole.PARENT}
+              />
+            </div>
+
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Alle Veranstaltungen</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {visibleEvents.map((event) => (
             <Card key={event.id}>
               <div className="p-6 flex flex-col h-full">
@@ -219,7 +248,8 @@ const Veranstaltungen: React.FC = () => {
               </div>
             </Card>
           ))}
-          </div>
+            </div>
+          </>
         )}
       </div>
       
@@ -292,6 +322,52 @@ const Veranstaltungen: React.FC = () => {
             <Button onClick={handleSaveEvent}>{editingEvent ? 'Änderungen speichern' : 'Erstellen'}</Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal isOpen={isViewModalOpen} onClose={handleCloseViewModal} title="Veranstaltungsdetails">
+        {viewingEvent && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-xl font-bold text-gray-800">{viewingEvent.title}</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Datum</label>
+                <p className="mt-1 text-gray-800">{viewingEvent.date}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Uhrzeit</label>
+                <p className="mt-1 text-gray-800">{viewingEvent.time}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Ort</label>
+              <p className="mt-1 text-gray-800">{viewingEvent.location}</p>
+            </div>
+            {viewingEvent.groupIds && viewingEvent.groupIds.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-600">Gruppen</label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {viewingEvent.groupIds.map(id => {
+                    const group = groups.find(g => g.id === id);
+                    return group ? (
+                      <span key={id} className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-700">
+                        {group.name}
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-600">Beschreibung</label>
+              <p className="mt-1 text-gray-800 whitespace-pre-wrap">{viewingEvent.description}</p>
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button onClick={handleCloseViewModal} variant="secondary">Schließen</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </>
   );
