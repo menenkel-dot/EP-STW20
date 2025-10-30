@@ -236,9 +236,9 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
         );
     };
 
-    const AdminView = () => {
-        // Gefilterte Abwesenheiten
-        const filteredAbsences = absences.filter(absence => {
+    // Gefilterte Abwesenheiten mit useMemo
+    const filteredAbsences = React.useMemo(() => {
+        return absences.filter(absence => {
             const child = getChildById(absence.childId);
             const groupName = child ? getGroupName(child.groupId) : 'N/A';
             
@@ -269,6 +269,9 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
             
             return true;
         });
+    }, [absences, filterChild, filterGroup, filterReason, filterDate, children, groups]);
+
+    const AdminView = () => {
 
         return (
             <div>
