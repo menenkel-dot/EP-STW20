@@ -454,6 +454,20 @@ const Verwaltung: React.FC = () => {
                                                 + Kind
                                             </button>
                                         )}
+                                        <button 
+                                            onClick={async () => {
+                                                try {
+                                                    await usersAPI.exportData(user.id);
+                                                } catch (error) {
+                                                    console.error('Fehler beim Datenexport:', error);
+                                                    alert('Fehler beim Datenexport. Bitte versuchen Sie es erneut.');
+                                                }
+                                            }} 
+                                            className="text-blue-600 hover:text-blue-900"
+                                            title="Daten exportieren"
+                                        >
+                                            Export
+                                        </button>
                                          {currentUser?.id !== user.id && (
                                             <>
                                                 <button onClick={() => handleOpenUserModal(user)} className="text-indigo-600 hover:text-indigo-900">
