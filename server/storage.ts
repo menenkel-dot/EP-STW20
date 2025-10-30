@@ -40,8 +40,12 @@ export interface IStorage {
   deleteAbsence(id: number): Promise<boolean>;
   
   // Documents Operations
+  getAllDocuments(): Promise<Document[]>;
+  getDocument(id: number): Promise<Document | undefined>;
   getDocumentsByUserId(userId: number): Promise<Document[]>;
   getDocumentsByChildId(childId: number): Promise<Document[]>;
+  createDocument(name: string, userId: number, childId: number | null, url: string, uploadDate: string): Promise<Document>;
+  deleteDocument(id: number): Promise<boolean>;
   
   // Events Operations
   getAllEvents(): Promise<Event[]>;
@@ -308,12 +312,34 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Documents Operations
+  async getAllDocuments(): Promise<Document[]> {
+    return db.select().from(documents).orderBy(desc(documents.createdAt));
+  }
+
+  async getDocument(id: number): Promise<Document | undefined> {
+    const [document] = await db.select().from(documents).where(eq(documents.id, id));
+    return document || undefined;
+  }
+
   async getDocumentsByUserId(userId: number): Promise<Document[]> {
     return db.select().from(documents).where(eq(documents.userId, userId));
   }
 
   async getDocumentsByChildId(childId: number): Promise<Document[]> {
     return db.select().from(documents).where(eq(documents.childId, childId));
+  }
+
+  async createDocument(name: string, userId: number, childId: number | null, url: string, uploadDate: string): Promise<Document> {
+    const [document] = await db
+      .insert(documents)
+      .values({ name, userId, childId, url, uploadDate })
+      .returning();
+    return document;
+  }
+
+  async deleteDocument(id: number): Promise<boolean> {
+    const result = await db.delete(documents).where(eq(documents.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 
   // Events Operations

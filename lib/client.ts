@@ -206,6 +206,20 @@ export const documentsAPI = {
     const response = await apiClient.get('/documents');
     return response.data;
   },
+
+  upload: async (documentData: {
+    name: string;
+    childId: number | null;
+    fileData: string;
+  }) => {
+    const response = await apiClient.post('/documents', documentData);
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await apiClient.delete(`/documents/${id}`);
+    return response.data;
+  },
 };
 
 // ==================== ABSENCES API ====================

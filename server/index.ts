@@ -460,18 +460,97 @@ app.get('/api/groups', authenticateToken, async (req: AuthRequest, res: Response
 
 // ==================== DOCUMENTS ROUTES ====================
 
-// Get documents for current user
+// Get documents (Admin: all, Parents: only their children's documents)
 app.get('/api/documents', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const documents = await storage.getDocumentsByUserId(req.user.userId);
-    res.json(documents);
+    // Admin sieht alle Dokumente
+    if (req.user.role === 'admin') {
+      const documents = await storage.getAllDocuments();
+      return res.json(documents);
+    }
+
+    // Eltern sehen nur Dokumente ihrer Kinder
+    if (req.user.role === 'parent') {
+      const children = await storage.getChildrenByParentId(req.user.userId);
+      const allDocuments: any[] = [];
+      
+      for (const child of children) {
+        const childDocuments = await storage.getDocumentsByChildId(child.id);
+        allDocuments.push(...childDocuments);
+      }
+      
+      return res.json(allDocuments);
+    }
+
+    return res.status(403).json({ error: 'Zugriff verweigert' });
   } catch (error) {
     console.error('Get documents error:', error);
     res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Upload document (Admin only)
+app.post('/api/documents', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Nur Admins können Dokumente hochladen' });
+    }
+
+    const { name, childId, fileData } = req.body;
+
+    if (!name || !fileData) {
+      return res.status(400).json({ error: 'Name und Datei erforderlich' });
+    }
+
+    // Validiere childId falls vorhanden
+    if (childId) {
+      const child = await storage.getChild(childId);
+      if (!child) {
+        return res.status(404).json({ error: 'Kind nicht gefunden' });
+      }
+    }
+
+    const uploadDate = new Date().toISOString().split('T')[0];
+    const document = await storage.createDocument(
+      name,
+      req.user.userId,
+      childId || null,
+      fileData,
+      uploadDate
+    );
+
+    res.status(201).json(document);
+  } catch (error) {
+    console.error('Upload document error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Hochladen' });
+  }
+});
+
+// Delete document (Admin only)
+app.delete('/api/documents/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Nur Admins können Dokumente löschen' });
+    }
+
+    const documentId = parseInt(req.params.id);
+    if (isNaN(documentId)) {
+      return res.status(400).json({ error: 'Ungültige Dokument-ID' });
+    }
+
+    const deleted = await storage.deleteDocument(documentId);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Dokument nicht gefunden' });
+    }
+
+    res.json({ message: 'Dokument erfolgreich gelöscht' });
+  } catch (error) {
+    console.error('Delete document error:', error);
+    res.status(500).json({ error: 'Serverfehler beim Löschen' });
   }
 });
 
