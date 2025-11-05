@@ -119,7 +119,14 @@ const Veranstaltungen: React.FC = () => {
   };
 
   const handleSaveEvent = async () => {
-    if (!title || !date || !time || !location || !description) {
+    // Validate required fields based on event type
+    if (!title || !date || !description) {
+        alert("Bitte alle Felder ausfüllen.");
+        return;
+    }
+    
+    // For regular events, time and location are required
+    if (eventType === 'event' && (!time || !location)) {
         alert("Bitte alle Felder ausfüllen.");
         return;
     }
@@ -143,6 +150,10 @@ const Veranstaltungen: React.FC = () => {
         year: 'numeric'
     }) : undefined;
 
+    // Set default values for holidays and closures
+    const finalTime = eventType === 'event' ? `${time} Uhr` : 'Ganztägig';
+    const finalLocation = eventType === 'event' ? location : '-';
+
     setIsLoading(true);
     try {
       if (editingEvent) {
@@ -150,8 +161,8 @@ const Veranstaltungen: React.FC = () => {
           title, 
           date: formattedDate,
           endDate: formattedEndDate,
-          time: `${time} Uhr`, 
-          location, 
+          time: finalTime, 
+          location: finalLocation, 
           description, 
           groupIds: selectedGroupIds,
           eventType
@@ -166,8 +177,8 @@ const Veranstaltungen: React.FC = () => {
           title,
           date: formattedDate,
           endDate: formattedEndDate,
-          time: `${time} Uhr`,
-          location,
+          time: finalTime,
+          location: finalLocation,
           description,
           groupIds: selectedGroupIds,
           eventType,
@@ -320,15 +331,19 @@ const Veranstaltungen: React.FC = () => {
               <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
             </div>
             )}
+            {eventType === 'event' && (
              <div>
               <label htmlFor="time" className="block text-sm font-medium text-gray-700">Uhrzeit</label>
               <input type="time" id="time" value={time} onChange={e => setTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
             </div>
+            )}
            </div>
+           {eventType === 'event' && (
            <div>
             <label htmlFor="location" className="block text-sm font-medium text-gray-700">Ort</label>
             <input type="text" id="location" value={location} onChange={e => setLocation(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
           </div>
+          )}
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700">Beschreibung</label>
             <textarea id="description" rows={3} value={description} onChange={e => setDescription(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
