@@ -218,8 +218,30 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
               !event.groupIds || event.groupIds.length === 0 || (activeChild && event.groupIds.includes(activeChild.groupId))
           );
 
-        setLatestPost(visiblePosts[0] || null);
-        setUpcomingEvent(visibleEvents[0] || null);
+        // Sortiere Posts nach Datum (neueste zuerst)
+        const sortedPosts = [...visiblePosts].sort((a, b) => {
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          return dateB - dateA; // Neueste zuerst
+        });
+
+        // Filtere nur zukünftige Events und sortiere nach Datum (nächste zuerst)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const upcomingEvents = [...visibleEvents]
+          .filter((event: any) => {
+            const eventDate = new Date(event.date);
+            eventDate.setHours(0, 0, 0, 0);
+            return eventDate >= today;
+          })
+          .sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return dateA - dateB; // Nächste zuerst
+          });
+
+        setLatestPost(sortedPosts[0] || null);
+        setUpcomingEvent(upcomingEvents[0] || null);
         setWeeklyReports(reportsModule);
         setGroups(groupsModule);
       } catch (error) {
