@@ -148,6 +148,13 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const [filterGroup, setFilterGroup] = useState<string>('');
     const [filterReason, setFilterReason] = useState<string>('');
     const [filterDate, setFilterDate] = useState<string>('');
+    
+    // Admin manual reporting state
+    const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
+    const [adminReason, setAdminReason] = useState<AbsenceReason>('krank');
+    const [adminStartDate, setAdminStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [adminEndDate, setAdminEndDate] = useState(new Date().toISOString().split('T')[0]);
+    const [adminSymptoms, setAdminSymptoms] = useState('');
 
     const getChildById = (childId: number): Child | undefined => children.find(c => c.id === childId);
     const getGroupName = (groupId: number): string => groups.find(g => g.id === groupId)?.name || 'N/A';
@@ -253,6 +260,53 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
             }
         }
     };
+    
+    const handleAdminReportAbsence = async () => {
+        if (!selectedChildId) {
+            alert('Bitte wählen Sie ein Kind aus.');
+            return;
+        }
+        if (adminReason === 'krank' && !adminSymptoms.trim()) {
+            alert('Bitte geben Sie die Symptome an.');
+            return;
+        }
+        if (!adminStartDate || !adminEndDate) {
+            alert('Bitte geben Sie einen gültigen Zeitraum an.');
+            return;
+        }
+
+        const selectedChild = children.find(c => c.id === selectedChildId);
+        if (!selectedChild) {
+            alert('Kind nicht gefunden.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const newAbsence = await absencesAPI.create({
+                childId: selectedChildId,
+                startDate: adminStartDate,
+                endDate: adminEndDate,
+                reason: adminReason,
+                symptoms: adminReason === 'krank' ? adminSymptoms : undefined,
+            });
+
+            setAbsences(prev => [newAbsence, ...prev]);
+            addNotification(`Abwesenheit für ${selectedChild.name} wurde gemeldet.`);
+
+            // Reset form
+            setSelectedChildId(null);
+            setAdminReason('krank');
+            setAdminStartDate(new Date().toISOString().split('T')[0]);
+            setAdminEndDate(new Date().toISOString().split('T')[0]);
+            setAdminSymptoms('');
+        } catch (error) {
+            console.error('Fehler beim Melden der Abwesenheit:', error);
+            alert('Fehler beim Melden der Abwesenheit. Bitte versuchen Sie es erneut.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
 
@@ -296,6 +350,110 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
         return (
             <div>
                 <h1 className="text-3xl font-bold text-gray-800 mb-6">Übersicht der Abwesenheiten</h1>
+                
+                {/* Manual Reporting Section */}
+                <Card>
+                    <div className="p-6">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4">Abwesenheit manuell melden</h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Verwenden Sie dieses Formular, um eine Abwesenheit manuell zu erfassen, falls diese telefonisch oder per Nachricht gemeldet wurde.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Kind auswählen</label>
+                                <select
+                                    value={selectedChildId || ''}
+                                    onChange={(e) => setSelectedChildId(e.target.value ? parseInt(e.target.value) : null)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                >
+                                    <option value="">-- Bitte wählen Sie ein Kind --</option>
+                                    {children.sort((a, b) => a.name.localeCompare(b.name)).map(child => (
+                                        <option key={child.id} value={child.id}>
+                                            {child.name} ({getGroupName(child.groupId)})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Grund der Abwesenheit</label>
+                                <div className="flex space-x-4">
+                                    <label className="flex items-center">
+                                        <input 
+                                            type="radio" 
+                                            value="krank" 
+                                            checked={adminReason === 'krank'} 
+                                            onChange={() => setAdminReason('krank')} 
+                                            className="form-radio h-4 w-4 text-cyan-600"
+                                        />
+                                        <span className="ml-2 text-gray-700">Krankheit</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input 
+                                            type="radio" 
+                                            value="sonstige" 
+                                            checked={adminReason === 'sonstige'} 
+                                            onChange={() => setAdminReason('sonstige')} 
+                                            className="form-radio h-4 w-4 text-cyan-600"
+                                        />
+                                        <span className="ml-2 text-gray-700">Sonstige</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="adminStartDate" className="block text-sm font-medium text-gray-700 mb-2">Von</label>
+                                    <input 
+                                        type="date" 
+                                        id="adminStartDate" 
+                                        value={adminStartDate} 
+                                        onChange={e => setAdminStartDate(e.target.value)} 
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="adminEndDate" className="block text-sm font-medium text-gray-700 mb-2">Bis</label>
+                                    <input 
+                                        type="date" 
+                                        id="adminEndDate" 
+                                        value={adminEndDate} 
+                                        onChange={e => setAdminEndDate(e.target.value)} 
+                                        min={adminStartDate}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                    />
+                                </div>
+                            </div>
+                            {adminReason === 'krank' && (
+                                <div className="md:col-span-2">
+                                    <label htmlFor="adminSymptoms" className="block text-sm font-medium text-gray-700 mb-2">Symptome (Pflichtfeld)</label>
+                                    <textarea 
+                                        id="adminSymptoms" 
+                                        value={adminSymptoms} 
+                                        onChange={e => setAdminSymptoms(e.target.value)} 
+                                        rows={3} 
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                        placeholder="Beschreiben Sie die Symptome..."
+                                    ></textarea>
+                                </div>
+                            )}
+                            {adminReason === 'sonstige' && (
+                                <div className="md:col-span-2">
+                                    <label htmlFor="adminSymptoms" className="block text-sm font-medium text-gray-700 mb-2">Grund (optional)</label>
+                                    <textarea 
+                                        id="adminSymptoms" 
+                                        value={adminSymptoms} 
+                                        onChange={e => setAdminSymptoms(e.target.value)} 
+                                        rows={3} 
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                        placeholder="z.B. Arzttermin"
+                                    ></textarea>
+                                </div>
+                            )}
+                            <div className="md:col-span-2 text-right">
+                                <Button onClick={handleAdminReportAbsence}>Abwesenheit erfassen</Button>
+                            </div>
+                        </div>
+                    </div>
+                </Card>
                 
                 {/* Filter Section */}
                 <Card>
