@@ -183,7 +183,11 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
           <div className="space-y-8">
           {visiblePosts.map((post) => (
             <Card key={post.id}>
-              {post.imageUrl && <img className="w-full h-56 object-cover" src={post.imageUrl} alt={post.title} />}
+              {post.imageUrl && (
+                <div className="w-full bg-gray-50 flex items-center justify-center" style={{ maxHeight: '400px' }}>
+                  <img className="w-full h-auto max-h-96 object-contain" src={post.imageUrl} alt={post.title} />
+                </div>
+              )}
               <div className="p-6">
                 <h2 className="text-2xl font-bold text-gray-800">{post.title}</h2>
                 <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
