@@ -268,6 +268,7 @@ export const eventsAPI = {
   create: async (eventData: {
     title: string;
     date: string;
+    endDate?: string;
     time: string;
     location: string;
     description: string;

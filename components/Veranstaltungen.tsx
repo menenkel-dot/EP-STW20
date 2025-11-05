@@ -21,6 +21,7 @@ const Veranstaltungen: React.FC = () => {
   // Form state
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
@@ -62,6 +63,19 @@ const Veranstaltungen: React.FC = () => {
       const monthMap: { [key: string]: string } = { "Januar": "01", "Februar": "02", "März": "03", "April": "04", "Mai": "05", "Juni": "06", "Juli": "07", "August": "08", "September": "09", "Oktober": "10", "November": "11", "Dezember": "12" };
       const month = monthMap[monthName] || '01';
       setDate(`${year}-${month}-${day.padStart(2, '0')}`);
+      
+      // Parse endDate if it exists
+      if (event.endDate) {
+        const endDateParts = event.endDate.split(' ');
+        const endDay = endDateParts[0].replace('.', '');
+        const endMonthName = endDateParts[1];
+        const endYear = endDateParts[2];
+        const endMonth = monthMap[endMonthName] || '01';
+        setEndDate(`${endYear}-${endMonth}-${endDay.padStart(2, '0')}`);
+      } else {
+        setEndDate('');
+      }
+      
       setTime(event.time.replace(' Uhr', ''));
       setLocation(event.location);
       setDescription(event.description);
@@ -71,6 +85,7 @@ const Veranstaltungen: React.FC = () => {
       setEditingEvent(null);
       setTitle('');
       setDate('');
+      setEndDate('');
       setTime('');
       setLocation('');
       setDescription('');
@@ -109,19 +124,32 @@ const Veranstaltungen: React.FC = () => {
         return;
     }
     
+    // For holidays and closures, check if endDate is provided
+    if ((eventType === 'holiday' || eventType === 'closure') && endDate && new Date(endDate) < new Date(date)) {
+        alert("Das Enddatum muss nach dem Startdatum liegen.");
+        return;
+    }
+    
     // Format date back to 'DD. MMMM YYYY' for display
     const formattedDate = new Date(date).toLocaleDateString('de-DE', {
         day: 'numeric',
         month: 'long',
         year: 'numeric'
     });
+    
+    const formattedEndDate = endDate ? new Date(endDate).toLocaleDateString('de-DE', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    }) : undefined;
 
     setIsLoading(true);
     try {
       if (editingEvent) {
         const updated = await eventsAPI.update(editingEvent.id, { 
           title, 
-          date: formattedDate, 
+          date: formattedDate,
+          endDate: formattedEndDate,
           time: `${time} Uhr`, 
           location, 
           description, 
@@ -137,6 +165,7 @@ const Veranstaltungen: React.FC = () => {
         const newEvent = await eventsAPI.create({
           title,
           date: formattedDate,
+          endDate: formattedEndDate,
           time: `${time} Uhr`,
           location,
           description,
@@ -280,9 +309,17 @@ const Veranstaltungen: React.FC = () => {
           </div>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
              <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700">Datum</label>
+              <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+                {eventType === 'holiday' || eventType === 'closure' ? 'Startdatum' : 'Datum'}
+              </label>
               <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
             </div>
+            {(eventType === 'holiday' || eventType === 'closure') && (
+             <div>
+              <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Enddatum (optional)</label>
+              <input type="date" id="endDate" value={endDate} onChange={e => setEndDate(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+            </div>
+            )}
              <div>
               <label htmlFor="time" className="block text-sm font-medium text-gray-700">Uhrzeit</label>
               <input type="time" id="time" value={time} onChange={e => setTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
