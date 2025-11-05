@@ -218,10 +218,16 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
               !event.groupIds || event.groupIds.length === 0 || (activeChild && event.groupIds.includes(activeChild.groupId))
           );
 
+        // Hilfsfunktion: Deutsches Datum (DD.MM.YYYY) zu Date-Objekt
+        const parseGermanDate = (dateStr: string): Date => {
+          const [day, month, year] = dateStr.split('.');
+          return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        };
+
         // Sortiere Posts nach Datum (neueste zuerst)
         const sortedPosts = [...visiblePosts].sort((a, b) => {
-          const dateA = new Date(a.date).getTime();
-          const dateB = new Date(b.date).getTime();
+          const dateA = parseGermanDate(a.date).getTime();
+          const dateB = parseGermanDate(b.date).getTime();
           return dateB - dateA; // Neueste zuerst
         });
 
@@ -230,6 +236,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
         today.setHours(0, 0, 0, 0);
         const upcomingEvents = [...visibleEvents]
           .filter((event: any) => {
+            // Events verwenden YYYY-MM-DD Format, das kann direkt geparst werden
             const eventDate = new Date(event.date);
             eventDate.setHours(0, 0, 0, 0);
             return eventDate >= today;
