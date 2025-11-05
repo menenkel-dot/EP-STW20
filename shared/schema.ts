@@ -58,6 +58,7 @@ export const events = pgTable('events', {
   id: serial('id').primaryKey(),
   title: varchar('title', { length: 255 }).notNull(),
   date: varchar('date', { length: 100 }).notNull(),
+  endDate: varchar('end_date', { length: 100 }),
   time: varchar('time', { length: 50 }).notNull(),
   location: varchar('location', { length: 255 }).notNull(),
   description: text('description').notNull(),
