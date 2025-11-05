@@ -1207,7 +1207,7 @@ app.post('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, re
       return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const { periodId, childId, needsCare, fromDate, toDate, fromTime, toTime, withLunch } = req.body;
+    const { periodId, childId, needsCare, fromDate, toDate, fromTime, toTime, withLunch, earlyService } = req.body;
 
     if (periodId === undefined || childId === undefined || needsCare === undefined) {
       return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
@@ -1231,7 +1231,8 @@ app.post('/api/holiday-bookings', authenticateToken, async (req: AuthRequest, re
       toDate: toDate || null,
       fromTime: fromTime || null,
       toTime: toTime || null,
-      withLunch: withLunch || false
+      withLunch: withLunch || false,
+      earlyService: earlyService || false
     });
 
     res.status(201).json(mapBookingToFrontend(booking));

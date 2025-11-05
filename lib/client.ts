@@ -375,6 +375,7 @@ export const holidayBookingsAPI = {
     fromTime?: string;
     toTime?: string;
     withLunch?: boolean;
+    earlyService?: boolean;
   }) => {
     const response = await apiClient.post('/holiday-bookings', bookingData);
     return response.data;
