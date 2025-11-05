@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Notification } from '../types';
+import type { Notification, View } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import NotificationBell from './NotificationBell';
 import { usersAPI } from '../lib/client';
@@ -8,9 +8,10 @@ interface HeaderProps {
   notifications: Notification[];
   markNotificationAsRead: (id: number) => void;
   onMenuClick: () => void;
+  setActiveView: (view: View) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, onMenuClick }) => {
+const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, onMenuClick, setActiveView }) => {
   const { user, activeChild, setActiveChild, logout } = useAuth();
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isChildMenuOpen, setChildMenuOpen] = useState(false);
@@ -93,6 +94,41 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Daten exportieren
+                </div>
+              </a>
+              <div className="border-t border-gray-200"></div>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveView('datenschutz');
+                  setProfileMenuOpen(false);
+                }}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-cyan-500 hover:text-white"
+                role="menuitem"
+              >
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Datenschutz
+                </div>
+              </a>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveView('impressum');
+                  setProfileMenuOpen(false);
+                }}
+                className="block px-4 py-2 text-sm text-gray-700 hover:bg-cyan-500 hover:text-white"
+                role="menuitem"
+              >
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Impressum
                 </div>
               </a>
               <div className="border-t border-gray-200"></div>
