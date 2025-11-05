@@ -62,6 +62,7 @@ export const events = pgTable('events', {
   location: varchar('location', { length: 255 }).notNull(),
   description: text('description').notNull(),
   groupIds: text('group_ids'),
+  eventType: varchar('event_type', { length: 50 }).notNull().default('event'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

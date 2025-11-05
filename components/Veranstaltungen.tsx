@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Event, Group } from '../types';
+import type { Event, Group, EventType } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
@@ -25,6 +25,7 @@ const Veranstaltungen: React.FC = () => {
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
+  const [eventType, setEventType] = useState<EventType>('event');
 
   useEffect(() => {
     const loadData = async () => {
@@ -65,6 +66,7 @@ const Veranstaltungen: React.FC = () => {
       setLocation(event.location);
       setDescription(event.description);
       setSelectedGroupIds(event.groupIds || []);
+      setEventType(event.eventType || 'event');
     } else {
       setEditingEvent(null);
       setTitle('');
@@ -72,6 +74,7 @@ const Veranstaltungen: React.FC = () => {
       setTime('');
       setLocation('');
       setDescription('');
+      setEventType('event');
       // Gruppenleitung: Automatically pre-select their assigned group
       if (user?.role === UserRole.GRUPPENLEITUNG && user.assignedGroupId) {
         setSelectedGroupIds([user.assignedGroupId]);
@@ -122,7 +125,8 @@ const Veranstaltungen: React.FC = () => {
           time: `${time} Uhr`, 
           location, 
           description, 
-          groupIds: selectedGroupIds 
+          groupIds: selectedGroupIds,
+          eventType
         });
         const parsedEvent = {
           ...updated,
@@ -137,6 +141,7 @@ const Veranstaltungen: React.FC = () => {
           location,
           description,
           groupIds: selectedGroupIds,
+          eventType,
         });
         const parsedEvent = {
           ...newEvent,
@@ -259,6 +264,19 @@ const Veranstaltungen: React.FC = () => {
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700">Titel</label>
             <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+          </div>
+          <div>
+            <label htmlFor="eventType" className="block text-sm font-medium text-gray-700">Typ</label>
+            <select 
+              id="eventType" 
+              value={eventType} 
+              onChange={e => setEventType(e.target.value as EventType)} 
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+            >
+              <option value="event">Veranstaltung</option>
+              <option value="holiday">Ferien</option>
+              <option value="closure">Schließtag</option>
+            </select>
           </div>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
              <div>

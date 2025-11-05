@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Event } from '../types';
+import type { Event, EventType } from '../types';
 import { UserRole } from '../types';
 
 interface CalendarProps {
@@ -10,6 +10,19 @@ interface CalendarProps {
 
 const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+
+  const getEventTypeColor = (eventType: EventType): string => {
+    switch (eventType) {
+      case 'event':
+        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200';
+      case 'holiday':
+        return 'bg-green-100 text-green-800 hover:bg-green-200';
+      case 'closure':
+        return 'bg-red-100 text-red-800 hover:bg-red-200';
+      default:
+        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200';
+    }
+  };
 
   const parseEventDate = (dateString: string): Date | null => {
     const monthMap: { [key: string]: number } = {
@@ -148,7 +161,7 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
                     <button
                       key={event.id}
                       onClick={() => onEventClick(event)}
-                      className="w-full text-left text-xs px-1 py-0.5 bg-cyan-100 text-cyan-800 rounded hover:bg-cyan-200 transition-colors truncate"
+                      className={`w-full text-left text-xs px-1 py-0.5 rounded transition-colors truncate ${getEventTypeColor(event.eventType)}`}
                       title={`${event.time} - ${event.title}`}
                     >
                       {event.title}
@@ -161,15 +174,25 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
         })}
       </div>
 
-      <div className="mt-4 flex items-center text-sm text-gray-600">
-        <div className="flex items-center mr-4">
-          <div className="w-3 h-3 bg-cyan-100 rounded mr-2"></div>
-          <span>Veranstaltung</span>
+      <div className="mt-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mb-2">
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-cyan-100 rounded mr-2"></div>
+            <span>Veranstaltung</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-green-100 rounded mr-2"></div>
+            <span>Ferien</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-red-100 rounded mr-2"></div>
+            <span>Schließtag</span>
+          </div>
         </div>
         {userRole === UserRole.ADMIN || userRole === UserRole.GRUPPENLEITUNG ? (
-          <span className="text-gray-500 italic">Klicken Sie auf eine Veranstaltung zum Bearbeiten</span>
+          <span className="text-gray-500 italic text-sm">Klicken Sie auf einen Eintrag zum Bearbeiten</span>
         ) : (
-          <span className="text-gray-500 italic">Klicken Sie auf eine Veranstaltung für Details</span>
+          <span className="text-gray-500 italic text-sm">Klicken Sie auf einen Eintrag für Details</span>
         )}
       </div>
     </div>

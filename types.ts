@@ -43,6 +43,8 @@ export interface Post {
     groupIds?: number[];
 }
 
+export type EventType = 'event' | 'holiday' | 'closure';
+
 export interface Event {
     id: number;
     title: string;
@@ -51,6 +53,7 @@ export interface Event {
     location: string;
     description: string;
     groupIds?: number[];
+    eventType: EventType;
 }
 
 export interface Message {

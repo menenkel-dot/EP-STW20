@@ -738,7 +738,7 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
       return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const { title, date, time, location, description, groupIds } = req.body;
+    const { title, date, time, location, description, groupIds, eventType } = req.body;
 
     if (!title || !date || !time || !location || !description) {
       return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
@@ -768,7 +768,8 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
       time,
       location,
       description,
-      groupIds: groupIds ? JSON.stringify(groupIds) : null
+      groupIds: groupIds ? JSON.stringify(groupIds) : null,
+      eventType: eventType || 'event'
     });
 
     // Benachrichtigungen an betroffene Eltern senden
@@ -817,7 +818,7 @@ app.put('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Resp
     }
 
     const id = parseInt(req.params.id);
-    const { title, date, time, location, description, groupIds } = req.body;
+    const { title, date, time, location, description, groupIds, eventType } = req.body;
 
     // Gruppenleitung can only edit events for their assigned group
     if (req.user.role === 'gruppenleitung') {
@@ -857,6 +858,7 @@ app.put('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Resp
     if (location) updates.location = location;
     if (description) updates.description = description;
     if (groupIds !== undefined) updates.groupIds = groupIds ? JSON.stringify(groupIds) : null;
+    if (eventType) updates.eventType = eventType;
 
     const event = await storage.updateEvent(id, updates);
     if (!event) {

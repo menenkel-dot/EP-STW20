@@ -272,6 +272,7 @@ export const eventsAPI = {
     location: string;
     description: string;
     groupIds?: number[];
+    eventType?: string;
   }) => {
     const response = await apiClient.post('/events', eventData);
     return response.data;
