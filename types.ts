@@ -31,7 +31,7 @@ export interface Notification {
   type: 'info' | 'alert' | 'success';
 }
 
-export type View = 'dashboard' | 'elternpost' | 'veranstaltungen' | 'feriendienst' | 'dokumente' | 'nachrichten' | 'verwaltung' | 'abwesenheit' | 'weitereInfos' | 'datenschutz' | 'impressum';
+export type View = 'dashboard' | 'elternpost' | 'veranstaltungen' | 'feriendienst' | 'dokumente' | 'nachrichten' | 'verwaltung' | 'abwesenheit' | 'weitereInfos' | 'datenschutz' | 'impressum' | 'wochenbericht';
 
 export interface Post {
     id: number;
@@ -124,4 +124,14 @@ export interface Contact {
     role: string;
     phone: string;
     email:string;
+}
+
+export interface WeeklyReport {
+    id: number;
+    groupId: number;
+    groupName?: string;
+    date: string; // YYYY-MM-DD
+    dailyReport: string;
+    createdAt?: string;
+    updatedAt?: string;
 }

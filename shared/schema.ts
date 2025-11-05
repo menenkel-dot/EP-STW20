@@ -152,6 +152,16 @@ export const settings = pgTable('settings', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Wochenberichte-Tabelle
+export const weeklyReports = pgTable('weekly_reports', {
+  id: serial('id').primaryKey(),
+  groupId: integer('group_id').notNull().references(() => groups.id, { onDelete: 'cascade' }),
+  date: varchar('date', { length: 10 }).notNull(),
+  dailyReport: text('daily_report').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Relationen
 export const usersRelations = relations(users, ({ many }) => ({
   children: many(children),
