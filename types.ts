@@ -99,6 +99,7 @@ export interface HolidayCareBooking {
   bookedFromTime?: string; // HH:mm
   bookedToTime?: string; // HH:mm
   withLunch?: boolean;
+  earlyService?: boolean;
 }
 
 export type AbsenceReason = 'krank' | 'sonstige';
