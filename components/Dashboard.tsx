@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { View, Post, Event } from '../types';
+import type { View, Post, Event, WeeklyReport } from '../types';
 import Card from './Card';
 import { UserRole } from '../types';
 import { useAuth } from '../hooks/useAuth';
@@ -83,6 +83,53 @@ const QuickActionsWidget: React.FC<{ setActiveView: (view: View) => void }> = ({
   );
 };
 
+const WeeklyReportsWidget: React.FC<{ reports: WeeklyReport[] }> = ({ reports }) => {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('de-DE', { 
+      weekday: 'short', 
+      day: '2-digit', 
+      month: '2-digit'
+    });
+  };
+
+  if (reports.length === 0) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Aktuelle Wochenberichte</h2>
+        <Card>
+          <p className="text-center py-8 text-gray-500">Keine Berichte vorhanden</p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Aktuelle Wochenberichte</h2>
+      <div className="space-y-3">
+        {reports.slice(0, 3).map((report) => (
+          <Card key={report.id}>
+            <div className="p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="bg-violet-100 text-violet-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {report.groupName || 'Unbekannt'}
+                </span>
+                <span className="text-gray-600 text-sm">
+                  {formatDate(report.date)}
+                </span>
+              </div>
+              <p className="text-gray-700 text-sm line-clamp-2">
+                {report.dailyReport}
+              </p>
+            </div>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // --- Main Dashboard Component ---
 
 interface DashboardProps {
@@ -93,6 +140,7 @@ const WIDGETS_CONFIG = {
     latestPost: { title: 'Neueste Elternpost', className: 'lg:col-span-1' },
     upcomingEvent: { title: 'Nächste Veranstaltung', className: 'lg:col-span-1' },
     quickActions: { title: 'Schnellzugriff', className: 'lg:col-span-2' },
+    weeklyReports: { title: 'Aktuelle Wochenberichte', className: 'lg:col-span-2' },
 };
 
 const DEFAULT_ORDER = Object.keys(WIDGETS_CONFIG);
@@ -100,6 +148,7 @@ const DEFAULT_VISIBILITY = {
   latestPost: true,
   upcomingEvent: true,
   quickActions: true,
+  weeklyReports: true,
 };
 
 
@@ -111,6 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
   const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>(DEFAULT_VISIBILITY);
   const [latestPost, setLatestPost] = useState<Post | null>(null);
   const [upcomingEvent, setUpcomingEvent] = useState<Event | null>(null);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const draggedWidgetId = useRef<string | null>(null);
   
@@ -141,10 +191,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const [postsModule, eventsModule, groupsModule] = await Promise.all([
+        const [postsModule, eventsModule, groupsModule, reportsModule] = await Promise.all([
           import('../lib/client').then(m => m.postsAPI.getAll()),
           import('../lib/client').then(m => m.eventsAPI.getAll()),
-          import('../lib/client').then(m => m.groupsAPI.getAll())
+          import('../lib/client').then(m => m.groupsAPI.getAll()),
+          import('../lib/client').then(m => m.weeklyReportsAPI.getAll())
         ]);
         
         const parsedPosts = postsModule.map((post: any) => ({
@@ -169,6 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
 
         setLatestPost(visiblePosts[0] || null);
         setUpcomingEvent(visibleEvents[0] || null);
+        setWeeklyReports(reportsModule);
         setGroups(groupsModule);
       } catch (error) {
         console.error('Fehler beim Laden der Dashboard-Daten:', error);
@@ -247,6 +299,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
     latestPost: <LatestPostWidget latestPost={latestPost} setActiveView={setActiveView} />,
     upcomingEvent: <UpcomingEventWidget upcomingEvent={upcomingEvent} setActiveView={setActiveView} />,
     quickActions: <QuickActionsWidget setActiveView={setActiveView} />,
+    weeklyReports: <WeeklyReportsWidget reports={weeklyReports} />,
   };
   
   const visibleWidgets = widgetOrder.filter(id => widgetVisibility[id]);
