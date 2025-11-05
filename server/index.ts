@@ -738,7 +738,7 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
       return res.status(401).json({ error: 'Nicht authentifiziert' });
     }
 
-    const { title, date, time, location, description, groupIds, eventType } = req.body;
+    const { title, date, endDate, time, location, description, groupIds, eventType } = req.body;
 
     if (!title || !date || !time || !location || !description) {
       return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
@@ -765,6 +765,7 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
     const event = await storage.createEvent({
       title,
       date,
+      endDate: endDate || null,
       time,
       location,
       description,
@@ -818,7 +819,7 @@ app.put('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Resp
     }
 
     const id = parseInt(req.params.id);
-    const { title, date, time, location, description, groupIds, eventType } = req.body;
+    const { title, date, endDate, time, location, description, groupIds, eventType } = req.body;
 
     // Gruppenleitung can only edit events for their assigned group
     if (req.user.role === 'gruppenleitung') {
@@ -854,6 +855,7 @@ app.put('/api/events/:id', authenticateToken, async (req: AuthRequest, res: Resp
     const updates: any = {};
     if (title) updates.title = title;
     if (date) updates.date = date;
+    if (endDate !== undefined) updates.endDate = endDate || null;
     if (time) updates.time = time;
     if (location) updates.location = location;
     if (description) updates.description = description;
