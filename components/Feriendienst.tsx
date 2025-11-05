@@ -28,6 +28,8 @@ const AdminView: React.FC<{
   setFilterBedarf: (value: string) => void;
   filterMittagessen: string;
   setFilterMittagessen: (value: string) => void;
+  filterFruehdienst: string;
+  setFilterFruehdienst: (value: string) => void;
   resetFilters: () => void;
   filteredBookings: HolidayCareBooking[];
   getChildById: (id: number) => Child | undefined;
@@ -62,6 +64,8 @@ const AdminView: React.FC<{
   setFilterBedarf,
   filterMittagessen,
   setFilterMittagessen,
+  filterFruehdienst,
+  setFilterFruehdienst,
   resetFilters,
   filteredBookings,
   getChildById,
@@ -139,6 +143,14 @@ const AdminView: React.FC<{
                 </select>
               </div>
               <div>
+                <label htmlFor="filter-fruehdienst" className="block text-sm font-medium text-gray-700">Frühdienst</label>
+                <select id="filter-fruehdienst" value={filterFruehdienst} onChange={e => setFilterFruehdienst(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm rounded-md">
+                  <option value="all">Alle</option>
+                  <option value="yes">Ja</option>
+                  <option value="no">Nein</option>
+                </select>
+              </div>
+              <div>
                 <Button onClick={resetFilters} variant="secondary">Filter zurücksetzen</Button>
               </div>
             </div>
@@ -152,6 +164,7 @@ const AdminView: React.FC<{
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uhrzeit</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mittagessen</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frühdienst</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -172,11 +185,12 @@ const AdminView: React.FC<{
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${formatDate(b.bookedFromDate!)} - ${formatDate(b.bookedToDate!)}` : '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? `${b.bookedFromTime} - ${b.bookedToTime}` : '-'}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? (b.withLunch ? 'Ja' : 'Nein') : '-'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{b.needsCare ? (b.earlyService ? 'Ja' : 'Nein') : '-'}</td>
                         </tr>
                       );
                     }) : (
                       <tr>
-                        <td colSpan={5} className="text-center py-10 text-gray-500">
+                        <td colSpan={6} className="text-center py-10 text-gray-500">
                           Keine Buchungen für die aktuellen Filter gefunden.
                         </td>
                       </tr>
@@ -305,6 +319,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
   const [filterGruppe, setFilterGruppe] = useState('all');
   const [filterBedarf, setFilterBedarf] = useState('all');
   const [filterMittagessen, setFilterMittagessen] = useState('all');
+  const [filterFruehdienst, setFilterFruehdienst] = useState('all');
 
   // Parent state
   const [editingBooking, setEditingBooking] = useState<HolidayCareBooking | null>(null);
@@ -314,6 +329,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
   const [formFromTime, setFormFromTime] = useState('08:00');
   const [formToTime, setFormToTime] = useState('14:00');
   const [formWithLunch, setFormWithLunch] = useState(false);
+  const [formEarlyService, setFormEarlyService] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -444,6 +460,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     setFormFromTime(newEditingBooking.bookedFromTime || '08:00');
     setFormToTime(newEditingBooking.bookedToTime || '14:00');
     setFormWithLunch(newEditingBooking.withLunch || false);
+    setFormEarlyService(newEditingBooking.earlyService || false);
   };
 
   const handleSaveBooking = async () => {
@@ -467,6 +484,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
         fromTime: formFromTime,
         toTime: formToTime,
         withLunch: formWithLunch,
+        earlyService: formEarlyService,
       };
     }
 
@@ -515,14 +533,19 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
       .filter(b => {
         if (filterMittagessen === 'all' || !b.needsCare) return true;
         return filterMittagessen === 'yes' ? b.withLunch : !b.withLunch;
+      })
+      .filter(b => {
+        if (filterFruehdienst === 'all' || !b.needsCare) return true;
+        return filterFruehdienst === 'yes' ? b.earlyService : !b.earlyService;
       });
-  }, [bookings, selectedPeriod, filterName, filterGruppe, filterBedarf, filterMittagessen]);
+  }, [bookings, selectedPeriod, filterName, filterGruppe, filterBedarf, filterMittagessen, filterFruehdienst]);
 
   const resetFilters = useCallback(() => {
     setFilterName('');
     setFilterGruppe('all');
     setFilterBedarf('all');
     setFilterMittagessen('all');
+    setFilterFruehdienst('all');
   }, []);
   
   const ParentView = () => {
@@ -569,6 +592,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
                               <div><label className="block text-sm font-medium text-gray-700">Bis Uhrzeit</label><input type="time" value={formToTime} onChange={e => setFormToTime(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/></div>
                             </div>
                             <div className="flex items-center"><input id={`lunch-${period.id}`} type="checkbox" checked={formWithLunch} onChange={e => setFormWithLunch(e.target.checked)} className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"/> <label htmlFor={`lunch-${period.id}`} className="ml-2 block text-sm text-gray-900">Mit Mittagessen</label></div>
+                            <div className="flex items-center"><input id={`early-service-${period.id}`} type="checkbox" checked={formEarlyService} onChange={e => setFormEarlyService(e.target.checked)} className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"/> <label htmlFor={`early-service-${period.id}`} className="ml-2 block text-sm text-gray-900">Frühdienst</label></div>
                           </div>
                         )}
                       </div>
@@ -600,6 +624,7 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
                             <p className="text-sm text-gray-600">Zeitraum: {formatDate(booking.bookedFromDate!)} bis {formatDate(booking.bookedToDate!)}</p>
                             <p className="text-sm text-gray-600">Uhrzeit: {booking.bookedFromTime} bis {booking.bookedToTime}</p>
                             <p className="text-sm text-gray-600">Mittagessen: {booking.withLunch ? 'Ja' : 'Nein'}</p>
+                            <p className="text-sm text-gray-600">Frühdienst: {booking.earlyService ? 'Ja' : 'Nein'}</p>
                           </div>
                         ) : (
                           <p className="font-semibold text-red-700">Keine Betreuung benötigt.</p>
@@ -638,6 +663,8 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
       setFilterBedarf={setFilterBedarf}
       filterMittagessen={filterMittagessen}
       setFilterMittagessen={setFilterMittagessen}
+      filterFruehdienst={filterFruehdienst}
+      setFilterFruehdienst={setFilterFruehdienst}
       resetFilters={resetFilters}
       filteredBookings={filteredBookings}
       getChildById={getChildById}

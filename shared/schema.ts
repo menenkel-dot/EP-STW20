@@ -98,6 +98,7 @@ export const holidayBookings = pgTable('holiday_bookings', {
   fromTime: varchar('from_time', { length: 10 }),
   toTime: varchar('to_time', { length: 10 }),
   withLunch: boolean('with_lunch').default(false),
+  earlyService: boolean('early_service').default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
