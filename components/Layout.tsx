@@ -13,6 +13,7 @@ import Abwesenheit from './Abwesenheit';
 import WeitereInfos from './WeitereInfos';
 import Datenschutz from './Datenschutz';
 import Impressum from './Impressum';
+import Wochenbericht from './Wochenbericht';
 
 interface LayoutProps {
   user: User;
@@ -43,6 +44,8 @@ const Layout: React.FC<LayoutProps> = ({ user, notifications, markNotificationAs
         return <Nachrichten user={user} />;
       case 'verwaltung':
         return <Verwaltung />;
+      case 'wochenbericht':
+        return <Wochenbericht addNotification={addNotification} />;
       case 'weitereInfos':
         return <WeitereInfos />;
       case 'datenschutz':
