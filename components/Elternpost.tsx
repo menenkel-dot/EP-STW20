@@ -160,11 +160,15 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
     });
   };
 
-  const visiblePosts = user?.role === UserRole.ADMIN 
+  const visiblePosts = (user?.role === UserRole.ADMIN 
     ? posts 
     : posts.filter(post => 
         !post.groupIds || post.groupIds.length === 0 || (activeChild && post.groupIds.includes(activeChild.groupId))
-    );
+    )).sort((a, b) => {
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      return dateB.getTime() - dateA.getTime();
+    });
 
   return (
     <>
