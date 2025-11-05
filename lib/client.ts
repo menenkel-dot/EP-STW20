@@ -510,3 +510,31 @@ export const settingsAPI = {
     return response.data;
   },
 };
+
+// ==================== WEEKLY REPORTS API ====================
+
+export const weeklyReportsAPI = {
+  getAll: async () => {
+    const response = await apiClient.get('/weekly-reports');
+    return response.data;
+  },
+
+  create: async (reportData: {
+    groupId: number;
+    date: string;
+    dailyReport: string;
+  }) => {
+    const response = await apiClient.post('/weekly-reports', reportData);
+    return response.data;
+  },
+
+  update: async (id: number, updates: { dailyReport: string }) => {
+    const response = await apiClient.put(`/weekly-reports/${id}`, updates);
+    return response.data;
+  },
+
+  delete: async (id: number) => {
+    const response = await apiClient.delete(`/weekly-reports/${id}`);
+    return response.data;
+  },
+};
