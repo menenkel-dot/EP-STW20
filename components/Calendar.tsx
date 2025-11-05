@@ -45,12 +45,29 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
 
   const getEventsForDay = (day: number, month: number, year: number): Event[] => {
     return events.filter(event => {
-      const eventDate = parseEventDate(event.date);
-      if (!eventDate) return false;
+      const eventStartDate = parseEventDate(event.date);
+      if (!eventStartDate) return false;
       
-      return eventDate.getDate() === day &&
-             eventDate.getMonth() === month &&
-             eventDate.getFullYear() === year;
+      const currentDay = new Date(year, month, day);
+      
+      // If event has no end date, check if it matches the exact day
+      if (!event.endDate) {
+        return eventStartDate.getDate() === day &&
+               eventStartDate.getMonth() === month &&
+               eventStartDate.getFullYear() === year;
+      }
+      
+      // If event has an end date, check if current day is within the range
+      const eventEndDate = parseEventDate(event.endDate);
+      if (!eventEndDate) {
+        // If endDate parsing failed, treat it as a single day event
+        return eventStartDate.getDate() === day &&
+               eventStartDate.getMonth() === month &&
+               eventStartDate.getFullYear() === year;
+      }
+      
+      // Check if current day is within start and end date (inclusive)
+      return currentDay >= eventStartDate && currentDay <= eventEndDate;
     });
   };
 
