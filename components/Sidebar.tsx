@@ -51,36 +51,36 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
             </button>
         </div>
         <nav className="flex-1 px-2 py-4">
-          {navItems.map((item) => (
-            <a
-              key={item.view}
-              className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
-                activeView === item.view ? 'bg-cyan-100 text-cyan-800' : ''
-              }`}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setActiveView(item.view);
-              }}
-            >
-              <SidebarIcon icon={item.icon} text={item.text} />
-            </a>
+          {navItems.map((item, index) => (
+            <React.Fragment key={item.view}>
+              <a
+                className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
+                  activeView === item.view ? 'bg-cyan-100 text-cyan-800' : ''
+                }`}
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveView(item.view);
+                }}
+              >
+                <SidebarIcon icon={item.icon} text={item.text} />
+              </a>
+              {index === 0 && (user.role === UserRole.ADMIN || user.role === UserRole.GRUPPENLEITUNG) && (
+                <a
+                  className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
+                    activeView === 'wochenbericht' ? 'bg-cyan-100 text-cyan-800' : ''
+                  }`}
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveView('wochenbericht');
+                  }}
+                >
+                  <SidebarIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} text="Wochenbericht" />
+                </a>
+              )}
+            </React.Fragment>
           ))}
-          {(user.role === UserRole.ADMIN || user.role === UserRole.GRUPPENLEITUNG) && (
-             <a
-              key="wochenbericht"
-              className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
-                activeView === 'wochenbericht' ? 'bg-cyan-100 text-cyan-800' : ''
-              }`}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setActiveView('wochenbericht');
-              }}
-            >
-              <SidebarIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} text="Wochenbericht" />
-            </a>
-          )}
           {user.role === UserRole.ADMIN && (
              <a
               key="verwaltung"
