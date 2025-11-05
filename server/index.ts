@@ -1747,6 +1747,186 @@ app.put('/api/settings/:key', authenticateToken, async (req: AuthRequest, res: R
   }
 });
 
+// ==================== WEEKLY REPORTS ROUTES ====================
+
+// Get weekly reports (role-based filtering)
+app.get('/api/weekly-reports', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const allGroups = await storage.getAllGroups();
+    const groupMap = new Map(allGroups.map(g => [g.id, g.name]));
+
+    if (req.user.role === 'admin') {
+      // Admin sieht alle Berichte
+      const reports = await storage.getAllWeeklyReports();
+      const reportsWithGroupNames = reports.map(r => ({
+        ...r,
+        groupName: groupMap.get(r.groupId) || 'Unbekannt'
+      }));
+      return res.json(reportsWithGroupNames);
+    }
+
+    if (req.user.role === 'gruppenleitung') {
+      // Gruppenleitung sieht nur Berichte der eigenen Gruppe
+      const user = await storage.getUser(req.user.userId);
+      if (!user || !user.assignedGroupId) {
+        return res.json([]);
+      }
+      
+      const reports = await storage.getWeeklyReportsByGroupId(user.assignedGroupId);
+      const reportsWithGroupNames = reports.map(r => ({
+        ...r,
+        groupName: groupMap.get(r.groupId) || 'Unbekannt'
+      }));
+      return res.json(reportsWithGroupNames);
+    }
+
+    if (req.user.role === 'parent') {
+      // Eltern sehen nur Berichte der Gruppen ihrer Kinder
+      const children = await storage.getChildrenByParentId(req.user.userId);
+      const childGroupIds = [...new Set(children.map(c => c.groupId).filter(Boolean))];
+      
+      if (childGroupIds.length === 0) {
+        return res.json([]);
+      }
+
+      const allReports = await Promise.all(
+        childGroupIds.map(groupId => storage.getWeeklyReportsByGroupId(groupId))
+      );
+      
+      const reports = allReports.flat();
+      const reportsWithGroupNames = reports.map(r => ({
+        ...r,
+        groupName: groupMap.get(r.groupId) || 'Unbekannt'
+      }));
+      
+      return res.json(reportsWithGroupNames);
+    }
+
+    res.json([]);
+  } catch (error) {
+    console.error('Get weekly reports error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Create weekly report
+app.post('/api/weekly-reports', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { groupId, date, dailyReport } = req.body;
+
+    if (!groupId || !date || !dailyReport) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    // Nur Admin und Gruppenleitung dürfen Berichte erstellen
+    if (req.user.role !== 'admin' && req.user.role !== 'gruppenleitung') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    // Gruppenleitung kann nur für ihre eigene Gruppe erstellen
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || user.assignedGroupId !== groupId) {
+        return res.status(403).json({ error: 'Zugriff nur auf eigene Gruppe erlaubt' });
+      }
+    }
+
+    const report = await storage.createWeeklyReport({
+      groupId,
+      date,
+      dailyReport
+    });
+
+    res.status(201).json(report);
+  } catch (error) {
+    console.error('Create weekly report error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Update weekly report
+app.put('/api/weekly-reports/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { id } = req.params;
+    const { dailyReport } = req.body;
+
+    if (!dailyReport) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+
+    // Nur Admin und Gruppenleitung dürfen Berichte bearbeiten
+    if (req.user.role !== 'admin' && req.user.role !== 'gruppenleitung') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const existingReport = await storage.getWeeklyReport(parseInt(id));
+    if (!existingReport) {
+      return res.status(404).json({ error: 'Bericht nicht gefunden' });
+    }
+
+    // Gruppenleitung kann nur eigene Gruppenberichte bearbeiten
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || user.assignedGroupId !== existingReport.groupId) {
+        return res.status(403).json({ error: 'Zugriff nur auf eigene Gruppe erlaubt' });
+      }
+    }
+
+    const updated = await storage.updateWeeklyReport(parseInt(id), { dailyReport });
+    res.json(updated);
+  } catch (error) {
+    console.error('Update weekly report error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
+// Delete weekly report
+app.delete('/api/weekly-reports/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Nicht authentifiziert' });
+    }
+
+    const { id } = req.params;
+
+    // Nur Admin und Gruppenleitung dürfen Berichte löschen
+    if (req.user.role !== 'admin' && req.user.role !== 'gruppenleitung') {
+      return res.status(403).json({ error: 'Zugriff verweigert' });
+    }
+
+    const existingReport = await storage.getWeeklyReport(parseInt(id));
+    if (!existingReport) {
+      return res.status(404).json({ error: 'Bericht nicht gefunden' });
+    }
+
+    // Gruppenleitung kann nur eigene Gruppenberichte löschen
+    if (req.user.role === 'gruppenleitung') {
+      const user = await storage.getUser(req.user.userId);
+      if (!user || user.assignedGroupId !== existingReport.groupId) {
+        return res.status(403).json({ error: 'Zugriff nur auf eigene Gruppe erlaubt' });
+      }
+    }
+
+    await storage.deleteWeeklyReport(parseInt(id));
+    res.json({ message: 'Bericht gelöscht' });
+  } catch (error) {
+    console.error('Delete weekly report error:', error);
+    res.status(500).json({ error: 'Serverfehler' });
+  }
+});
+
 // ==================== DAILY DEADLINE CHECK ====================
 
 // Funktion zur Prüfung von Feriendienstfristen (1 Tag vor Ablauf)

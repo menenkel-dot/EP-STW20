@@ -1,11 +1,11 @@
 import { 
-  users, children, groups, absences, documents, events, posts, holidayPeriods, holidayBookings, conversations, messages, contacts, notifications, settings,
+  users, children, groups, absences, documents, events, posts, holidayPeriods, holidayBookings, conversations, messages, contacts, notifications, settings, weeklyReports,
   type User, type InsertUser, type Child, type InsertChild, type Group, 
   type Absence, type InsertAbsence, type Document, type Event, type InsertEvent,
   type Post, type InsertPost, type HolidayPeriod, type InsertHolidayPeriod,
   type HolidayBooking, type InsertHolidayBooking, type Conversation, type InsertConversation,
   type Message, type InsertMessage, type Contact, type InsertContact, type Notification, type InsertNotification,
-  type Setting, type InsertSetting
+  type Setting, type InsertSetting, type WeeklyReport, type InsertWeeklyReport
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, desc } from "drizzle-orm";
@@ -105,6 +105,14 @@ export interface IStorage {
   // Settings Operations
   getSetting(key: string): Promise<Setting | undefined>;
   updateSetting(key: string, value: string): Promise<Setting>;
+  
+  // Weekly Reports Operations
+  getAllWeeklyReports(): Promise<WeeklyReport[]>;
+  getWeeklyReportsByGroupId(groupId: number): Promise<WeeklyReport[]>;
+  getWeeklyReport(id: number): Promise<WeeklyReport | undefined>;
+  createWeeklyReport(insertReport: InsertWeeklyReport): Promise<WeeklyReport>;
+  updateWeeklyReport(id: number, updates: Partial<InsertWeeklyReport>): Promise<WeeklyReport | undefined>;
+  deleteWeeklyReport(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -641,6 +649,46 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Weekly Reports Operations
+  async getAllWeeklyReports(): Promise<WeeklyReport[]> {
+    return await db.select().from(weeklyReports).orderBy(desc(weeklyReports.date));
+  }
+
+  async getWeeklyReportsByGroupId(groupId: number): Promise<WeeklyReport[]> {
+    return await db
+      .select()
+      .from(weeklyReports)
+      .where(eq(weeklyReports.groupId, groupId))
+      .orderBy(desc(weeklyReports.date));
+  }
+
+  async getWeeklyReport(id: number): Promise<WeeklyReport | undefined> {
+    const [report] = await db.select().from(weeklyReports).where(eq(weeklyReports.id, id));
+    return report || undefined;
+  }
+
+  async createWeeklyReport(insertReport: InsertWeeklyReport): Promise<WeeklyReport> {
+    const [report] = await db
+      .insert(weeklyReports)
+      .values(insertReport)
+      .returning();
+    return report;
+  }
+
+  async updateWeeklyReport(id: number, updates: Partial<InsertWeeklyReport>): Promise<WeeklyReport | undefined> {
+    const [updated] = await db
+      .update(weeklyReports)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(weeklyReports.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteWeeklyReport(id: number): Promise<boolean> {
+    const result = await db.delete(weeklyReports).where(eq(weeklyReports.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
   }
 }
 
