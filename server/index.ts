@@ -740,8 +740,14 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
 
     const { title, date, endDate, time, location, description, groupIds, eventType } = req.body;
 
-    if (!title || !date || !time || !location || !description) {
+    // Validate required fields based on event type
+    if (!title || !date || !description) {
       return res.status(400).json({ error: 'Fehlende Pflichtfelder' });
+    }
+    
+    // For regular events, time and location are required
+    if (eventType === 'event' && (!time || !location)) {
+      return res.status(400).json({ error: 'Fehlende Pflichtfelder für Veranstaltung' });
     }
 
     // Gruppenleitung can only create events for their assigned group
@@ -762,12 +768,16 @@ app.post('/api/events', authenticateToken, async (req: AuthRequest, res: Respons
       return res.status(403).json({ error: 'Zugriff verweigert' });
     }
 
+    // Set default values for holidays and closures
+    const finalTime = eventType === 'event' || eventType === undefined ? time : 'Ganztägig';
+    const finalLocation = eventType === 'event' || eventType === undefined ? location : '-';
+
     const event = await storage.createEvent({
       title,
       date,
       endDate: endDate || null,
-      time,
-      location,
+      time: finalTime,
+      location: finalLocation,
       description,
       groupIds: groupIds ? JSON.stringify(groupIds) : null,
       eventType: eventType || 'event'
