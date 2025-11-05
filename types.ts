@@ -49,6 +49,7 @@ export interface Event {
     id: number;
     title: string;
     date: string;
+    endDate?: string;
     time: string;
     location: string;
     description: string;
