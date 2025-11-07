@@ -86,26 +86,27 @@ const App: React.FC = () => {
     setupUser();
   }, [session]);
 
-  // TODO: Benachrichtigungen müssen auf Supabase umgestellt werden.
-  // useEffect(() => {
-  //   const loadNotifications = async () => {
-  //     if (currentUser) {
-  //       try {
-  //         // const data = await notificationsAPI.getAll();
-  //         // setNotifications(data);
-  //       } catch (error) {
-  //         console.error('Fehler beim Laden der Benachrichtigungen:', error);
-  //       }
-  //     }
-  //   };
-  //   loadNotifications();
-  //   const intervalId = setInterval(() => {
-  //     if (currentUser) {
-  //       loadNotifications();
-  //     }
-  //   }, 30000);
-  //   return () => clearInterval(intervalId);
-  // }, [currentUser]);
+  useEffect(() => {
+    const loadNotifications = async () => {
+      if (currentUser) {
+        try {
+          const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .order('created_at', { ascending: false });
+
+          if (error) throw error;
+          setNotifications(data as Notification[]);
+        } catch (error) {
+          console.error('Fehler beim Laden der Benachrichtigungen:', error);
+        }
+      }
+    };
+    loadNotifications();
+    const intervalId = setInterval(loadNotifications, 30000);
+    return () => clearInterval(intervalId);
+  }, [currentUser]);
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -119,23 +120,40 @@ const App: React.FC = () => {
   };
 
   const markNotificationAsRead = async (id: number) => {
-    // TODO: Auf Supabase umstellen
-    // try {
-    //   await notificationsAPI.markAsRead(id);
-    //   setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    // } catch (error) {
-    //   console.error('Fehler beim Markieren der Benachrichtigung:', error);
-    // }
+    try {
+      // Optimistic UI update
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
+
+      if (error) {
+        // Revert on error
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
+        throw error;
+      }
+    } catch (error) {
+      console.error('Fehler beim Markieren der Benachrichtigung:', error);
+    }
   };
 
-  const addNotification = (message: string) => {
-    const newNotification: Notification = {
-      id: Date.now(),
-      message,
-      read: false,
-      type: 'info'
-    };
-    setNotifications(prev => [newNotification, ...prev]);
+  const addNotification = async (message: string, type: Notification['type'] = 'info') => {
+    if (!currentUser) return;
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert({ user_id: currentUser.id, message, type })
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      setNotifications(prev => [data as Notification, ...prev]);
+    } catch (error) {
+      console.error('Fehler beim Hinzufügen der Benachrichtigung:', error);
+    }
   };
 
   const authContextValue = useMemo(() => ({
