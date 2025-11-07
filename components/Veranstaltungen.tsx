@@ -6,7 +6,7 @@ import Button from './Button';
 import Modal from './Modal';
 import Calendar from './Calendar';
 import { useAuth } from '../hooks/useAuth';
-import { eventsAPI, groupsAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
 const Veranstaltungen: React.FC = () => {
   const { user, activeChild } = useAuth();
@@ -32,13 +32,27 @@ const Veranstaltungen: React.FC = () => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [eventsData, groupsData] = await Promise.all([
-          eventsAPI.getAll(),
-          groupsAPI.getAll()
-        ]);
-        const parsedEvents = eventsData.map((event: any) => ({
-          ...event,
-          groupIds: typeof event.groupIds === 'string' ? JSON.parse(event.groupIds) : event.groupIds
+        const { data: eventsData, error: eventsError } = await supabase
+          .from('events')
+          .select('*')
+          .order('date', { ascending: true });
+        if (eventsError) throw eventsError;
+
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('groups')
+          .select('*');
+        if (groupsError) throw groupsError;
+
+        const parsedEvents: Event[] = eventsData.map((event: any) => ({
+          id: event.id,
+          title: event.title,
+          date: event.date, // YYYY-MM-DD
+          endDate: event.end_date, // YYYY-MM-DD
+          time: event.time,
+          location: event.location,
+          description: event.description,
+          groupIds: event.group_ids || [],
+          eventType: event.event_type,
         }));
         setEvents(parsedEvents);
         setGroups(groupsData);
@@ -55,28 +69,9 @@ const Veranstaltungen: React.FC = () => {
     if (event) {
       setEditingEvent(event);
       setTitle(event.title);
-      // Assuming date is 'DD. MMMM YYYY', converting to 'YYYY-MM-DD' for input
-      const dateParts = event.date.split(' ');
-      const day = dateParts[0].replace('.', '');
-      const monthName = dateParts[1];
-      const year = dateParts[2];
-      const monthMap: { [key: string]: string } = { "Januar": "01", "Februar": "02", "März": "03", "April": "04", "Mai": "05", "Juni": "06", "Juli": "07", "August": "08", "September": "09", "Oktober": "10", "November": "11", "Dezember": "12" };
-      const month = monthMap[monthName] || '01';
-      setDate(`${year}-${month}-${day.padStart(2, '0')}`);
-      
-      // Parse endDate if it exists
-      if (event.endDate) {
-        const endDateParts = event.endDate.split(' ');
-        const endDay = endDateParts[0].replace('.', '');
-        const endMonthName = endDateParts[1];
-        const endYear = endDateParts[2];
-        const endMonth = monthMap[endMonthName] || '01';
-        setEndDate(`${endYear}-${endMonth}-${endDay.padStart(2, '0')}`);
-      } else {
-        setEndDate('');
-      }
-      
-      setTime(event.time.replace(' Uhr', ''));
+      setDate(event.date); // Already in YYYY-MM-DD
+      setEndDate(event.endDate || '');
+      setTime(event.time.replace(' Uhr', '').replace('Ganztägig', ''));
       setLocation(event.location);
       setDescription(event.description);
       setSelectedGroupIds(event.groupIds || []);
@@ -90,7 +85,6 @@ const Veranstaltungen: React.FC = () => {
       setLocation('');
       setDescription('');
       setEventType('event');
-      // Gruppenleitung: Automatically pre-select their assigned group
       if (user?.role === UserRole.GRUPPENLEITUNG && user.assignedGroupId) {
         setSelectedGroupIds([user.assignedGroupId]);
       } else {
@@ -119,80 +113,76 @@ const Veranstaltungen: React.FC = () => {
   };
 
   const handleSaveEvent = async () => {
-    // Validate required fields based on event type
     if (!title || !date || !description) {
-        alert("Bitte alle Felder ausfüllen.");
+        alert("Bitte Titel, Startdatum und Beschreibung ausfüllen.");
         return;
     }
-    
-    // For regular events, time and location are required
     if (eventType === 'event' && (!time || !location)) {
-        alert("Bitte alle Felder ausfüllen.");
+        alert("Für eine Veranstaltung müssen Uhrzeit und Ort angegeben werden.");
         return;
     }
-    
-    // For holidays and closures, check if endDate is provided
-    if ((eventType === 'holiday' || eventType === 'closure') && endDate && new Date(endDate) < new Date(date)) {
+    if (endDate && new Date(endDate) < new Date(date)) {
         alert("Das Enddatum muss nach dem Startdatum liegen.");
         return;
     }
     
-    // Format date back to 'DD. MMMM YYYY' for display
-    const formattedDate = new Date(date).toLocaleDateString('de-DE', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-    });
-    
-    const formattedEndDate = endDate ? new Date(endDate).toLocaleDateString('de-DE', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
-    }) : undefined;
-
-    // Set default values for holidays and closures
-    const finalTime = eventType === 'event' ? `${time} Uhr` : 'Ganztägig';
-    const finalLocation = eventType === 'event' ? location : '-';
+    const eventData = {
+      title,
+      description,
+      date,
+      end_date: endDate || null,
+      time: eventType === 'event' ? `${time} Uhr` : 'Ganztägig',
+      location: eventType === 'event' ? location : '-',
+      event_type: eventType,
+      group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : null,
+    };
 
     setIsLoading(true);
     try {
       if (editingEvent) {
-        const updated = await eventsAPI.update(editingEvent.id, { 
-          title, 
-          date: formattedDate,
-          endDate: formattedEndDate,
-          time: finalTime, 
-          location: finalLocation, 
-          description, 
-          groupIds: selectedGroupIds,
-          eventType
-        });
-        const parsedEvent = {
-          ...updated,
-          groupIds: typeof updated.groupIds === 'string' ? JSON.parse(updated.groupIds) : updated.groupIds
+        const { data, error } = await supabase
+          .from('events')
+          .update(eventData)
+          .eq('id', editingEvent.id)
+          .select()
+          .single();
+        if (error) throw error;
+        const updatedEvent: Event = {
+          id: data.id,
+          title: data.title,
+          date: data.date,
+          endDate: data.end_date,
+          time: data.time,
+          location: data.location,
+          description: data.description,
+          groupIds: data.group_ids || [],
+          eventType: data.event_type,
         };
-        setEvents(events.map(e => e.id === editingEvent.id ? parsedEvent : e));
+        setEvents(events.map(e => e.id === editingEvent.id ? updatedEvent : e));
       } else {
-        const newEvent = await eventsAPI.create({
-          title,
-          date: formattedDate,
-          endDate: formattedEndDate,
-          time: finalTime,
-          location: finalLocation,
-          description,
-          groupIds: selectedGroupIds,
-          eventType,
-        });
-        const parsedEvent = {
-          ...newEvent,
-          groupIds: typeof newEvent.groupIds === 'string' ? JSON.parse(newEvent.groupIds) : newEvent.groupIds
+        const { data, error } = await supabase
+          .from('events')
+          .insert(eventData)
+          .select()
+          .single();
+        if (error) throw error;
+        const newEvent: Event = {
+          id: data.id,
+          title: data.title,
+          date: data.date,
+          endDate: data.end_date,
+          time: data.time,
+          location: data.location,
+          description: data.description,
+          groupIds: data.group_ids || [],
+          eventType: data.event_type,
         };
-        setEvents([parsedEvent, ...events]);
+        setEvents([...events, newEvent].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
       }
       handleCloseModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fehler beim Speichern der Veranstaltung:', error);
-      alert('Fehler beim Speichern der Veranstaltung. Bitte versuchen Sie es erneut.');
+      alert('Fehler beim Speichern: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -202,11 +192,12 @@ const Veranstaltungen: React.FC = () => {
     if (window.confirm("Sind Sie sicher, dass Sie diese Veranstaltung löschen möchten?")) {
       setIsLoading(true);
       try {
-        await eventsAPI.delete(eventId);
+        const { error } = await supabase.from('events').delete().eq('id', eventId);
+        if (error) throw error;
         setEvents(events.filter(e => e.id !== eventId));
-      } catch (error) {
+      } catch (error: any) {
         console.error('Fehler beim Löschen der Veranstaltung:', error);
-        alert('Fehler beim Löschen der Veranstaltung. Bitte versuchen Sie es erneut.');
+        alert('Fehler beim Löschen: ' + error.message);
       } finally {
         setIsLoading(false);
       }
@@ -239,6 +230,8 @@ const Veranstaltungen: React.FC = () => {
         !event.groupIds || event.groupIds.length === 0 || (activeChild && event.groupIds.includes(activeChild.groupId))
     );
   
+  const formatDateForDisplay = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
   return (
     <>
       <div>
@@ -258,33 +251,33 @@ const Veranstaltungen: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Alle Veranstaltungen</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {visibleEvents.map((event) => (
-            <Card key={event.id}>
-              <div className="p-6 flex flex-col h-full">
-                <div>
-                  <p className="text-sm font-semibold text-cyan-600">{event.date} - {event.time}</p>
-                  <h2 className="text-xl font-bold text-gray-800 mt-2">{event.title}</h2>
-                   {event.groupIds && event.groupIds.length > 0 && (
-                    <div className="flex items-center text-xs text-gray-500 mt-1">
-                      <span className="flex items-center bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
-                        {event.groupIds.map(id => groups.find(g=>g.id === id)?.name).join(', ')}
-                      </span>
+              {visibleEvents.map((event) => (
+                <Card key={event.id}>
+                  <div className="p-6 flex flex-col h-full">
+                    <div>
+                      <p className="text-sm font-semibold text-cyan-600">{formatDateForDisplay(event.date)} - {event.time}</p>
+                      <h2 className="text-xl font-bold text-gray-800 mt-2">{event.title}</h2>
+                       {event.groupIds && event.groupIds.length > 0 && (
+                        <div className="flex items-center text-xs text-gray-500 mt-1">
+                          <span className="flex items-center bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+                            {event.groupIds.map(id => groups.find(g=>g.id === id)?.name).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      <p className="text-gray-600 mt-2">Ort: {event.location}</p>
+                      <p className="text-gray-700 mt-4">{event.description}</p>
                     </div>
-                  )}
-                  <p className="text-gray-600 mt-2">Ort: {event.location}</p>
-                  <p className="text-gray-700 mt-4">{event.description}</p>
-                </div>
-                {((user?.role === UserRole.ADMIN) || 
-                  (user?.role === UserRole.GRUPPENLEITUNG && event.groupIds && user.assignedGroupId && event.groupIds.includes(user.assignedGroupId))) && (
-                  <div className="flex justify-end space-x-2 mt-4 pt-4 border-t mt-auto">
-                      <Button onClick={() => handleOpenModal(event)} variant="secondary">Bearbeiten</Button>
-                      <Button onClick={() => handleDeleteEvent(event.id)} variant="danger">Löschen</Button>
+                    {((user?.role === UserRole.ADMIN) || 
+                      (user?.role === UserRole.GRUPPENLEITUNG && event.groupIds && user.assignedGroupId && event.groupIds.includes(user.assignedGroupId))) && (
+                      <div className="flex justify-end space-x-2 mt-4 pt-4 border-t mt-auto">
+                          <Button onClick={() => handleOpenModal(event)} variant="secondary">Bearbeiten</Button>
+                          <Button onClick={() => handleDeleteEvent(event.id)} variant="danger">Löschen</Button>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </Card>
-          ))}
+                </Card>
+              ))}
             </div>
 
             <div className="mt-8">
@@ -404,7 +397,7 @@ const Veranstaltungen: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600">Datum</label>
-                <p className="mt-1 text-gray-800">{viewingEvent.date}</p>
+                <p className="mt-1 text-gray-800">{formatDateForDisplay(viewingEvent.date)}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-600">Uhrzeit</label>

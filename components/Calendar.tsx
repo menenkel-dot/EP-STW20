@@ -24,49 +24,24 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
     }
   };
 
-  const parseEventDate = (dateString: string): Date | null => {
-    const monthMap: { [key: string]: number } = {
-      "Januar": 0, "Februar": 1, "März": 2, "April": 3, "Mai": 4, "Juni": 5,
-      "Juli": 6, "August": 7, "September": 8, "Oktober": 9, "November": 10, "Dezember": 11
-    };
-    
-    const parts = dateString.split(' ');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0].replace('.', ''));
-      const month = monthMap[parts[1]];
-      const year = parseInt(parts[2]);
-      
-      if (!isNaN(day) && month !== undefined && !isNaN(year)) {
-        return new Date(year, month, day);
-      }
-    }
-    return null;
-  };
-
   const getEventsForDay = (day: number, month: number, year: number): Event[] => {
+    const currentDay = new Date(year, month, day);
+    currentDay.setHours(0, 0, 0, 0);
+
     return events.filter(event => {
-      const eventStartDate = parseEventDate(event.date);
-      if (!eventStartDate) return false;
-      
-      const currentDay = new Date(year, month, day);
-      
-      // If event has no end date, check if it matches the exact day
+      // Supabase provides dates in 'YYYY-MM-DD' format, which new Date() can parse correctly.
+      const eventStartDate = new Date(event.date);
+      eventStartDate.setHours(0, 0, 0, 0);
+
       if (!event.endDate) {
-        return eventStartDate.getDate() === day &&
-               eventStartDate.getMonth() === month &&
-               eventStartDate.getFullYear() === year;
+        // Single-day event
+        return eventStartDate.getTime() === currentDay.getTime();
       }
       
-      // If event has an end date, check if current day is within the range
-      const eventEndDate = parseEventDate(event.endDate);
-      if (!eventEndDate) {
-        // If endDate parsing failed, treat it as a single day event
-        return eventStartDate.getDate() === day &&
-               eventStartDate.getMonth() === month &&
-               eventStartDate.getFullYear() === year;
-      }
+      // Multi-day event
+      const eventEndDate = new Date(event.endDate);
+      eventEndDate.setHours(0, 0, 0, 0);
       
-      // Check if current day is within start and end date (inclusive)
       return currentDay >= eventStartDate && currentDay <= eventEndDate;
     });
   };
