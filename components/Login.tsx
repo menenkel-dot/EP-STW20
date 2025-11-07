@@ -35,7 +35,7 @@ const Login: React.FC<LoginProps> = ({ error }) => {
         @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-15px); } }
       `}</style>
 
-      <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none opacity-60">
         {spaceElements.map((element, index) => (
           <div
             key={index}
