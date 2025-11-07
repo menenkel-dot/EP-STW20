@@ -10,6 +10,7 @@ export default defineConfig(() => {
         strictPort: true,
         allowedHosts: true as const,
         hmr: {
+          protocol: 'wss',
           clientPort: 443,
         },
         proxy: {
