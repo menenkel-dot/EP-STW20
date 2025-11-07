@@ -313,8 +313,8 @@ const Verwaltung: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                <p className="text-gray-500">Lade Verwaltung...</p>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
+                <p className="text-gray-500 dark:text-gray-400">Lade Verwaltung...</p>
             </div>
         );
     }
@@ -327,37 +327,37 @@ const Verwaltung: React.FC = () => {
         <div>
             {/* User Management Section */}
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Benutzerverwaltung</h1>
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Benutzerverwaltung</h1>
                 <Button onClick={() => handleOpenUserModal(null)}>+ Neuer Benutzer</Button>
             </div>
             
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-700">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-Mail</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rolle</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kinder</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">E-Mail</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rolle</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Kinder</th>
                                 <th scope="col" className="relative px-6 py-3"><span className="sr-only">Aktionen</span></th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {users.map(user => (
                             <tr key={user.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.username}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.username}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                        user.role === UserRole.ADMIN ? 'bg-purple-100 text-purple-800' : 
-                                        user.role === UserRole.GRUPPENLEITUNG ? 'bg-blue-100 text-blue-800' : 
-                                        'bg-green-100 text-green-800'
+                                        user.role === UserRole.ADMIN ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' : 
+                                        user.role === UserRole.GRUPPENLEITUNG ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 
+                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                     }`}>
                                         {user.role}
                                     </span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                     {user.children && user.children.length > 0 ? (
                                         <ul className="space-y-1">
                                             {user.children.map(child => (
@@ -375,16 +375,16 @@ const Verwaltung: React.FC = () => {
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                                     {user.role === UserRole.PARENT && (
-                                        <button onClick={() => handleOpenChildModal(user)} className="text-cyan-600 hover:text-cyan-900">
+                                        <button onClick={() => handleOpenChildModal(user)} className="text-cyan-600 hover:text-cyan-900 dark:text-cyan-400 dark:hover:text-cyan-200">
                                             + Kind
                                         </button>
                                     )}
                                      {currentUser?.id !== user.id && (
                                         <>
-                                            <button onClick={() => handleOpenUserModal(user)} className="text-indigo-600 hover:text-indigo-900">
+                                            <button onClick={() => handleOpenUserModal(user)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200">
                                                 Bearbeiten
                                             </button>
-                                            <button onClick={() => handleDeleteUser(user)} className="text-red-600 hover:text-red-900">
+                                            <button onClick={() => handleDeleteUser(user)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200">
                                                 Löschen
                                             </button>
                                         </>
@@ -399,7 +399,7 @@ const Verwaltung: React.FC = () => {
 
             {/* Group Management Section */}
             <div className="flex justify-between items-center mt-12 mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Gruppenverwaltung</h1>
+                <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Gruppenverwaltung</h1>
                 <Button onClick={() => setGroupModalOpen(true)}>+ Neue Gruppe</Button>
             </div>
 
@@ -410,25 +410,25 @@ const Verwaltung: React.FC = () => {
                         <Card key={group.id}>
                             <div className="p-6">
                                 <div className="flex justify-between items-start">
-                                    <h2 className="text-xl font-bold text-gray-800">{group.name}</h2>
-                                    <button onClick={() => handleDeleteGroup(group.id)} className="text-gray-400 hover:text-red-500">
+                                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">{group.name}</h2>
+                                    <button onClick={() => handleDeleteGroup(group.id)} className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
                                         </svg>
                                     </button>
                                 </div>
                                 <div className="mt-4">
-                                    <h3 className="text-sm font-semibold text-gray-600">Kinder in dieser Gruppe:</h3>
+                                    <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400">Kinder in dieser Gruppe:</h3>
                                     {groupChildren.length > 0 ? (
-                                        <ul className="mt-2 list-disc list-inside text-gray-700">
+                                        <ul className="mt-2 list-disc list-inside text-gray-700 dark:text-gray-300">
                                             {groupChildren.map(child => <li key={child.id}>{child.name}</li>)}
                                         </ul>
                                     ) : (
-                                        <p className="mt-2 text-sm text-gray-500 italic">Keine Kinder zugewiesen.</p>
+                                        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">Keine Kinder zugewiesen.</p>
                                     )}
                                 </div>
                                 <div className="mt-4 text-right">
-                                    <button onClick={() => handleOpenGroupEditModal(group)} className="text-sm font-semibold text-cyan-600 hover:text-cyan-800">
+                                    <button onClick={() => handleOpenGroupEditModal(group)} className="text-sm font-semibold text-cyan-600 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-200">
                                         Bearbeiten
                                     </button>
                                 </div>
@@ -442,16 +442,16 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isUserModalOpen} onClose={handleCloseUserModal} title={editingUser ? 'Benutzer bearbeiten' : 'Neuen Benutzer erstellen'}>
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Name</label>
-                        <input type="text" value={formUserName} onChange={e => setFormUserName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                        <input type="text" value={formUserName} onChange={e => setFormUserName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">E-Mail</label>
-                        <input type="email" value={formUserEmail} onChange={e => setFormUserEmail(e.target.value)} disabled={!!editingUser} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 disabled:bg-gray-100"/>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">E-Mail</label>
+                        <input type="email" value={formUserEmail} onChange={e => setFormUserEmail(e.target.value)} disabled={!!editingUser} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 disabled:bg-gray-100 dark:disabled:bg-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Rolle</label>
-                        <select value={formUserRole} onChange={e => setFormUserRole(e.target.value as UserRole)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rolle</label>
+                        <select value={formUserRole} onChange={e => setFormUserRole(e.target.value as UserRole)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             <option value={UserRole.PARENT}>Eltern</option>
                             <option value={UserRole.ADMIN}>Admin</option>
                             <option value={UserRole.GRUPPENLEITUNG}>Gruppenleitung</option>
@@ -459,11 +459,11 @@ const Verwaltung: React.FC = () => {
                     </div>
                     {formUserRole === UserRole.GRUPPENLEITUNG && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Zugewiesene Gruppe</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Zugewiesene Gruppe</label>
                             <select 
                                 value={formUserAssignedGroupId || ''} 
                                 onChange={e => setFormUserAssignedGroupId(e.target.value ? parseInt(e.target.value) : null)} 
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                             >
                                 <option value="">Bitte Gruppe auswählen</option>
                                 {groups.map(group => (
@@ -474,8 +474,8 @@ const Verwaltung: React.FC = () => {
                     )}
                     {!editingUser && (
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Initiales Passwort</label>
-                            <input type="password" value={formUserPassword} onChange={e => setFormUserPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Initiales Passwort</label>
+                            <input type="password" value={formUserPassword} onChange={e => setFormUserPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
                         </div>
                     )}
                     <div className="flex justify-end pt-4">
@@ -488,12 +488,12 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isChildModalOpen} onClose={() => setChildModalOpen(false)} title={`Kind für ${selectedUser?.name} hinzufügen`}>
                  <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Name des Kindes</label>
-                        <input type="text" value={newChildName} onChange={e => setNewChildName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name des Kindes</label>
+                        <input type="text" value={newChildName} onChange={e => setNewChildName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Gruppe</label>
-                        <select value={newChildGroupId} onChange={e => setNewChildGroupId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gruppe</label>
+                        <select value={newChildGroupId} onChange={e => setNewChildGroupId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             {groups.map(group => (
                                 <option key={group.id} value={group.id}>{group.name}</option>
                             ))}
@@ -509,8 +509,8 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isGroupModalOpen} onClose={() => setGroupModalOpen(false)} title="Neue Gruppe erstellen">
                  <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Name der Gruppe</label>
-                        <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name der Gruppe</label>
+                        <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
                     </div>
                     <div className="flex justify-end pt-4">
                         <Button onClick={handleCreateGroup}>Gruppe erstellen</Button>
@@ -522,29 +522,29 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isGroupEditModalOpen} onClose={() => setGroupEditModalOpen(false)} title={`Gruppe "${selectedGroup?.name}" bearbeiten`}>
                 <div className="space-y-6">
                     <div>
-                        <h4 className="font-semibold text-gray-800">Kinder in dieser Gruppe</h4>
+                        <h4 className="font-semibold text-gray-800 dark:text-gray-100">Kinder in dieser Gruppe</h4>
                         {childrenInSelectedGroup.length > 0 ? (
                             <ul className="mt-2 space-y-2 max-h-48 overflow-y-auto">
                                 {childrenInSelectedGroup.map(child => (
-                                    <li key={child.id} className="flex justify-between items-center bg-gray-50 p-2 rounded-md">
-                                        <span className="text-gray-700">{child.name}</span>
-                                        <button onClick={() => handleRemoveChildFromGroup(child.id)} className="text-sm font-medium text-red-600 hover:text-red-800">Entfernen</button>
+                                    <li key={child.id} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-2 rounded-md">
+                                        <span className="text-gray-700 dark:text-gray-200">{child.name}</span>
+                                        <button onClick={() => handleRemoveChildFromGroup(child.id)} className="text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">Entfernen</button>
                                     </li>
                                 ))}
                             </ul>
                         ) : (
-                           <p className="mt-2 text-sm text-gray-500 italic">Dieser Gruppe sind keine Kinder zugewiesen.</p> 
+                           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">Dieser Gruppe sind keine Kinder zugewiesen.</p> 
                         )}
                     </div>
 
-                    <div className="border-t pt-4">
-                        <h4 className="font-semibold text-gray-800">Kind hinzufügen</h4>
+                    <div className="border-t dark:border-gray-600 pt-4">
+                        <h4 className="font-semibold text-gray-800 dark:text-gray-100">Kind hinzufügen</h4>
                         {availableChildren.length > 0 ? (
                             <div className="mt-2 flex items-center space-x-2">
                                 <select 
                                     value={childToAddId} 
                                     onChange={e => setChildToAddId(e.target.value)} 
-                                    className="flex-grow block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                                    className="flex-grow block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                 >
                                     <option value="" disabled>Kind auswählen...</option>
                                     {availableChildren.map(child => (
@@ -554,7 +554,7 @@ const Verwaltung: React.FC = () => {
                                 <Button onClick={handleAddChildToGroup} className="flex-shrink-0">+ Hinzufügen</Button>
                             </div>
                         ) : (
-                            <p className="mt-2 text-sm text-gray-500 italic">Alle Kinder sind bereits einer Gruppe zugewiesen.</p>
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">Alle Kinder sind bereits einer Gruppe zugewiesen.</p>
                         )}
                     </div>
                     <div className="flex justify-end pt-4">

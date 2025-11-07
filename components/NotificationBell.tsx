@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { Notification } from '../types';
 
@@ -23,7 +22,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, mark
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:bg-gray-100"
+        className="relative p-2 text-gray-500 rounded-full hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300 dark:focus:bg-gray-700"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -38,25 +37,25 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ notifications, mark
       {isOpen && (
         <div 
           onMouseLeave={() => setIsOpen(false)}
-          className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-20"
+          className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl overflow-hidden z-20 dark:bg-gray-800 dark:border dark:border-gray-700"
         >
-          <div className="py-2 px-4 text-gray-700 font-semibold bg-gray-50">Benachrichtigungen</div>
-          <div className="divide-y divide-gray-100">
+          <div className="py-2 px-4 text-gray-700 font-semibold bg-gray-50 dark:bg-gray-700 dark:text-gray-200">Benachrichtigungen</div>
+          <div className="divide-y divide-gray-100 dark:divide-gray-700">
             {notifications.length > 0 ? notifications.map(n => (
               <a
                 key={n.id}
                 href="#"
                 onClick={(e) => { e.preventDefault(); markAsRead(n.id); }}
-                className={`flex items-start px-4 py-3 hover:bg-gray-100 transition ease-in-out duration-150 ${!n.read ? 'bg-blue-50' : ''}`}
+                className={`flex items-start px-4 py-3 hover:bg-gray-100 transition ease-in-out duration-150 ${!n.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''} dark:hover:bg-gray-700`}
               >
                 <div className="flex-shrink-0 mt-1">{getIconForType(n.type)}</div>
                 <div className="ml-3">
-                    <p className={`text-sm leading-5 ${!n.read ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                    <p className={`text-sm leading-5 ${!n.read ? 'font-semibold text-gray-800 dark:text-gray-100' : 'text-gray-600 dark:text-gray-300'}`}>
                         {n.message}
                     </p>
                 </div>
               </a>
-            )) : <p className="p-4 text-sm text-gray-500">Keine neuen Benachrichtigungen.</p>}
+            )) : <p className="p-4 text-sm text-gray-500 dark:text-gray-400">Keine neuen Benachrichtigungen.</p>}
           </div>
         </div>
       )}

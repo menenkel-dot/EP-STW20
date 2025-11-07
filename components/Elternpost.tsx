@@ -261,7 +261,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
     <>
       <div>
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Elternpost</h1>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">Elternpost</h1>
           {user?.role === UserRole.ADMIN && (
             <Button onClick={() => handleOpenModal()}>+ Neue Elternpost</Button>
           )}
@@ -275,24 +275,24 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
           {visiblePosts.map((post) => (
             <Card key={post.id}>
               {post.imageUrl && (
-                <div className="w-full bg-gray-50 flex items-center justify-center" style={{ maxHeight: '400px' }}>
+                <div className="w-full bg-gray-50 dark:bg-gray-700 flex items-center justify-center" style={{ maxHeight: '400px' }}>
                   <img className="w-full h-auto max-h-96 object-contain" src={post.imageUrl} alt={post.title} />
                 </div>
               )}
               <div className="p-6">
-                <h2 className="text-2xl font-bold text-gray-800">{post.title}</h2>
-                <div className="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{post.title}</h2>
+                <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
                   <span>Veröffentlicht von {post.author} am {post.date}</span>
                   {post.groupIds && post.groupIds.length > 0 && (
-                    <span className="flex items-center bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                    <span className="flex items-center bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-300">
                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
                       {post.groupIds.map(id => groups.find(g=>g.id === id)?.name).join(', ')}
                     </span>
                   )}
                 </div>
-                <p className="text-gray-700 mt-4 whitespace-pre-wrap">{post.content}</p>
+                <p className="text-gray-700 dark:text-gray-300 mt-4 whitespace-pre-wrap">{post.content}</p>
                 {user?.role === UserRole.ADMIN && (
-                  <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
+                  <div className="flex justify-end space-x-2 mt-4 pt-4 border-t dark:border-gray-700">
                     <Button onClick={() => handleOpenModal(post)} variant="secondary">Bearbeiten</Button>
                     <Button onClick={() => handleDeletePost(post)} variant="danger">Löschen</Button>
                   </div>
@@ -307,22 +307,22 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
       <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingPost ? 'Elternpost bearbeiten' : 'Neue Elternpost erstellen'}>
         <div className="space-y-4">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700">Titel</label>
-            <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500" />
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Titel</label>
+            <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
           </div>
           <div>
-            <label htmlFor="content" className="block text-sm font-medium text-gray-700">Inhalt</label>
-            <textarea id="content" rows={6} value={content} onChange={e => setContent(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+            <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Inhalt</label>
+            <textarea id="content" rows={6} value={content} onChange={e => setContent(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"></textarea>
           </div>
            <div>
-            <label className="block text-sm font-medium text-gray-700">Bild (Optional)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Bild (Optional)</label>
             <div className="mt-2 flex items-center space-x-6">
                 <div className="flex-shrink-0">
                     {imageUrl ? (
                         <img className="h-24 w-24 object-cover rounded-md" src={imageUrl} alt="Vorschau" />
                     ) : (
-                        <div className="h-24 w-24 bg-gray-100 rounded-md flex items-center justify-center">
-                            <svg className="h-12 w-12 text-gray-300" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        <div className="h-24 w-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                            <svg className="h-12 w-12 text-gray-300 dark:text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </div>
                     )}
                 </div>
@@ -338,7 +338,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
                     <button 
                         type="button"
                         onClick={() => fileInputRef.current?.click()} 
-                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500"
+                        className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 dark:bg-gray-600 dark:text-gray-200 dark:border-gray-500 dark:hover:bg-gray-500"
                     >
                         {imageUrl ? 'Bild ändern' : 'Bild hochladen'}
                     </button>
@@ -355,21 +355,21 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Sichtbar für Gruppen (leer lassen für alle)</label>
-            <div className="mt-2 space-y-2 border border-gray-300 rounded-md p-4 max-h-48 overflow-y-auto">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sichtbar für Gruppen (leer lassen für alle)</label>
+            <div className="mt-2 space-y-2 border border-gray-300 rounded-md p-4 max-h-48 overflow-y-auto dark:border-gray-600">
               <div className="flex items-center">
                 <input
                   id="all-groups"
                   type="checkbox"
                   checked={selectedGroupIds.length === groups.length}
                   onChange={handleSelectAllGroups}
-                  className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                  className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500 dark:bg-gray-700 dark:border-gray-600"
                 />
-                <label htmlFor="all-groups" className="ml-3 block text-sm font-medium text-gray-900">
+                <label htmlFor="all-groups" className="ml-3 block text-sm font-medium text-gray-900 dark:text-gray-200">
                   Alle Gruppen
                 </label>
               </div>
-              <hr className="my-2" />
+              <hr className="my-2 dark:border-gray-600" />
               {groups.map(group => (
                 <div key={group.id} className="flex items-center">
                   <input
@@ -377,9 +377,9 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
                     type="checkbox"
                     checked={selectedGroupIds.includes(group.id)}
                     onChange={() => handleGroupCheckboxChange(group.id)}
-                    className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500"
+                    className="h-4 w-4 text-cyan-600 border-gray-300 rounded focus:ring-cyan-500 dark:bg-gray-700 dark:border-gray-600"
                   />
-                  <label htmlFor={`group-${group.id}`} className="ml-3 block text-sm text-gray-700">
+                  <label htmlFor={`group-${group.id}`} className="ml-3 block text-sm text-gray-700 dark:text-gray-300">
                     {group.name}
                   </label>
                 </div>

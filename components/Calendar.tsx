@@ -14,13 +14,13 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
   const getEventTypeColor = (eventType: EventType): string => {
     switch (eventType) {
       case 'event':
-        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200';
+        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-900/50 dark:text-cyan-200 dark:hover:bg-cyan-900/80';
       case 'holiday':
-        return 'bg-green-100 text-green-800 hover:bg-green-200';
+        return 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-200 dark:hover:bg-green-900/80';
       case 'closure':
-        return 'bg-red-100 text-red-800 hover:bg-red-200';
+        return 'bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-900/50 dark:text-red-200 dark:hover:bg-red-900/80';
       default:
-        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200';
+        return 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200 dark:bg-cyan-900/50 dark:text-cyan-200 dark:hover:bg-cyan-900/80';
     }
   };
 
@@ -89,33 +89,33 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-white rounded-lg shadow-md p-6 dark:bg-gray-800">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
           {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h2>
         <div className="flex space-x-2">
           <button
             onClick={previousMonth}
-            className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:hover:bg-gray-700"
             aria-label="Vorheriger Monat"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
           </button>
           <button
             onClick={goToToday}
-            className="px-3 py-1 text-sm font-medium text-cyan-700 bg-cyan-50 rounded-md hover:bg-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="px-3 py-1 text-sm font-medium text-cyan-700 bg-cyan-50 rounded-md hover:bg-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:bg-cyan-900/50 dark:text-cyan-200 dark:hover:bg-cyan-900/80"
           >
             Heute
           </button>
           <button
             onClick={nextMonth}
-            className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 dark:hover:bg-gray-700"
             aria-label="Nächster Monat"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
             </svg>
           </button>
@@ -124,7 +124,7 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
 
       <div className="grid grid-cols-7 gap-2">
         {dayNames.map(day => (
-          <div key={day} className="text-center text-sm font-semibold text-gray-600 py-2">
+          <div key={day} className="text-center text-sm font-semibold text-gray-600 dark:text-gray-400 py-2">
             {day}
           </div>
         ))}
@@ -141,11 +141,11 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
             <div
               key={day}
               className={`aspect-square border rounded-lg p-1 ${
-                isToday ? 'border-cyan-500 bg-cyan-50' : 'border-gray-200'
-              } hover:bg-gray-50 transition-colors`}
+                isToday ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-900/30' : 'border-gray-200 dark:border-gray-700'
+              } hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors`}
             >
               <div className="h-full flex flex-col">
-                <div className={`text-sm font-medium mb-1 ${isToday ? 'text-cyan-700' : 'text-gray-700'}`}>
+                <div className={`text-sm font-medium mb-1 ${isToday ? 'text-cyan-700 dark:text-cyan-200' : 'text-gray-700 dark:text-gray-300'}`}>
                   {day}
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-0.5">
@@ -167,24 +167,24 @@ const Calendar: React.FC<CalendarProps> = ({ events, onEventClick, userRole }) =
       </div>
 
       <div className="mt-4">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mb-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
           <div className="flex items-center">
-            <div className="w-3 h-3 bg-cyan-100 rounded mr-2"></div>
+            <div className="w-3 h-3 bg-cyan-100 dark:bg-cyan-900/50 rounded mr-2"></div>
             <span>Veranstaltung</span>
           </div>
           <div className="flex items-center">
-            <div className="w-3 h-3 bg-green-100 rounded mr-2"></div>
+            <div className="w-3 h-3 bg-green-100 dark:bg-green-900/50 rounded mr-2"></div>
             <span>Ferien</span>
           </div>
           <div className="flex items-center">
-            <div className="w-3 h-3 bg-red-100 rounded mr-2"></div>
+            <div className="w-3 h-3 bg-red-100 dark:bg-red-900/50 rounded mr-2"></div>
             <span>Schließtag</span>
           </div>
         </div>
         {userRole === UserRole.ADMIN || userRole === UserRole.GRUPPENLEITUNG ? (
-          <span className="text-gray-500 italic text-sm">Klicken Sie auf einen Eintrag zum Bearbeiten</span>
+          <span className="text-gray-500 dark:text-gray-400 italic text-sm">Klicken Sie auf einen Eintrag zum Bearbeiten</span>
         ) : (
-          <span className="text-gray-500 italic text-sm">Klicken Sie auf einen Eintrag für Details</span>
+          <span className="text-gray-500 dark:text-gray-400 italic text-sm">Klicken Sie auf einen Eintrag für Details</span>
         )}
       </div>
     </div>
