@@ -1,125 +1,102 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from './hooks/useAuth';
-import type { User, Notification, Child } from './types';
-import { authAPI, notificationsAPI, type LoginResponse } from './lib/client';
+import type { User, Notification, Child, UserRole } from './types';
+import { supabase } from './integrations/supabase/client';
+import type { Session } from '@supabase/supabase-js';
 import Login from './components/Login';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Beim App-Start: Prüfe ob User eingeloggt ist
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('authToken');
-      const savedUser = localStorage.getItem('user');
-
-      if (token && savedUser) {
-        try {
-          // User-Daten aus localStorage laden
-          const user = JSON.parse(savedUser) as LoginResponse['user'];
-          
-          // Konvertiere Backend-User zu Frontend-User
-          const frontendUser: User = {
-            id: user.id,
-            username: user.username,
-            name: user.name,
-            password: '', // Passwort nicht im Frontend speichern
-            role: user.role as any,
-            avatarUrl: user.avatarUrl || '',
-            children: user.children.map(child => ({
-              id: child.id,
-              name: child.name,
-              groupId: child.groupId || 0,
-              avatarUrl: child.avatarUrl || '',
-            })),
-          };
-
-          setCurrentUser(frontendUser);
-          
-          if (frontendUser.children && frontendUser.children.length > 0) {
-            setActiveChild(frontendUser.children[0]);
-          }
-        } catch (error) {
-          console.error('Fehler beim Laden des Benutzers:', error);
-          authAPI.logout();
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) {
+        setCurrentUser(null);
+        setActiveChild(null);
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
-    };
+    });
 
-    checkAuth();
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Benachrichtigungen laden, wenn User eingeloggt ist
   useEffect(() => {
-    const loadNotifications = async () => {
-      if (currentUser) {
+    const setupUser = async () => {
+      if (session?.user) {
+        setIsLoading(true);
         try {
-          const data = await notificationsAPI.getAll();
-          setNotifications(data);
+          // Fetch profile
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('username, name, role, avatar_url, assigned_group_id')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError) throw profileError;
+
+          // TODO: Fetch children from Supabase once the table is migrated
+          const children: Child[] = []; // Placeholder
+
+          const user: User = {
+            id: session.user.id,
+            username: profile.username,
+            name: profile.name,
+            role: profile.role as UserRole,
+            avatarUrl: profile.avatar_url || '',
+            assignedGroupId: profile.assigned_group_id,
+            children: children,
+          };
+
+          setCurrentUser(user);
+          if (children.length > 0) {
+            setActiveChild(children[0]);
+          }
         } catch (error) {
-          console.error('Fehler beim Laden der Benachrichtigungen:', error);
+          console.error('Fehler beim Laden des Benutzerprofils:', error);
+          await supabase.auth.signOut();
+        } finally {
+          setIsLoading(false);
         }
       }
     };
 
-    loadNotifications();
+    setupUser();
+  }, [session]);
 
-    // Poll for new notifications every 30 seconds
-    const intervalId = setInterval(() => {
-      if (currentUser) {
-        loadNotifications();
-      }
-    }, 30000);
+  // TODO: Benachrichtigungen müssen auf Supabase umgestellt werden.
+  // useEffect(() => {
+  //   const loadNotifications = async () => {
+  //     if (currentUser) {
+  //       try {
+  //         // const data = await notificationsAPI.getAll();
+  //         // setNotifications(data);
+  //       } catch (error) {
+  //         console.error('Fehler beim Laden der Benachrichtigungen:', error);
+  //       }
+  //     }
+  //   };
+  //   loadNotifications();
+  //   const intervalId = setInterval(() => {
+  //     if (currentUser) {
+  //       loadNotifications();
+  //     }
+  //   }, 30000);
+  //   return () => clearInterval(intervalId);
+  // }, [currentUser]);
 
-    return () => clearInterval(intervalId);
-  }, [currentUser]);
-
-  const login = async (username: string, pass: string): Promise<boolean> => {
-    try {
-      const response = await authAPI.login({ username, password: pass });
-      
-      // Token speichern
-      localStorage.setItem('authToken', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
-
-      // Konvertiere Backend-User zu Frontend-User
-      const frontendUser: User = {
-        id: response.user.id,
-        username: response.user.username,
-        name: response.user.name,
-        password: '', // Passwort nicht im Frontend speichern
-        role: response.user.role as any,
-        avatarUrl: response.user.avatarUrl || '',
-        children: response.user.children.map(child => ({
-          id: child.id,
-          name: child.name,
-          groupId: child.groupId || 0,
-          avatarUrl: child.avatarUrl || '',
-        })),
-      };
-
-      setCurrentUser(frontendUser);
-      
-      if (frontendUser.children && frontendUser.children.length > 0) {
-        setActiveChild(frontendUser.children[0]);
-      }
-
-      return true;
-    } catch (error: any) {
-      console.error('Login fehlgeschlagen:', error);
-      return false;
-    }
-  };
-
-  const logout = () => {
-    authAPI.logout();
+  const logout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setActiveChild(null);
     setNotifications([]);
@@ -130,28 +107,16 @@ const App: React.FC = () => {
   };
 
   const markNotificationAsRead = async (id: number) => {
-    try {
-      await notificationsAPI.markAsRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    } catch (error) {
-      console.error('Fehler beim Markieren der Benachrichtigung:', error);
-    }
-  };
-
-  const reloadNotifications = async () => {
-    if (currentUser) {
-      try {
-        const data = await notificationsAPI.getAll();
-        setNotifications(data);
-      } catch (error) {
-        console.error('Fehler beim Laden der Benachrichtigungen:', error);
-      }
-    }
+    // TODO: Auf Supabase umstellen
+    // try {
+    //   await notificationsAPI.markAsRead(id);
+    //   setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    // } catch (error) {
+    //   console.error('Fehler beim Markieren der Benachrichtigung:', error);
+    // }
   };
 
   const addNotification = (message: string) => {
-    // Create local notification for immediate user feedback
-    // (for success messages like "Abwesenheit erfolgreich gemeldet")
     const newNotification: Notification = {
       id: Date.now(),
       message,
@@ -159,20 +124,15 @@ const App: React.FC = () => {
       type: 'info'
     };
     setNotifications(prev => [newNotification, ...prev]);
-    
-    // Server-generated notifications (for other users) will be fetched
-    // by the 30-second polling interval automatically
   };
 
   const authContextValue = useMemo(() => ({
     user: currentUser,
     activeChild: activeChild,
-    login,
     logout,
     setActiveChild: handleSetActiveChild,
   }), [currentUser, activeChild]);
 
-  // Zeige Loading-Screen während Auth-Check
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200">
@@ -185,11 +145,7 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return (
-      <AuthContext.Provider value={authContextValue}>
-        <Login />
-      </AuthContext.Provider>
-    );
+    return <Login />;
   }
 
   return (

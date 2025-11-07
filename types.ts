@@ -14,10 +14,9 @@ export interface Child {
 }
 
 export interface User {
-  id: number;
+  id: string; // Changed from number to string for Supabase UUID
   name: string;
   username: string;
-  password?: string;
   role: UserRole;
   children: Child[];
   avatarUrl: string;
@@ -59,14 +58,14 @@ export interface Event {
 
 export interface Message {
     id: number;
-    senderId: number; // 99 for admin, user.id for parent
+    senderId: string; // Changed from number
     content: string;
     timestamp: string; // ISO 8601 format
 }
 
 export interface Conversation {
     id: number;
-    participantIds: number[]; // e.g., [1, 99] for a chat between parent and admin
+    participantIds: string[]; // Changed from number[]
     messages: Message[];
     subject?: string; // Optional for broadcast messages
 }
@@ -81,7 +80,7 @@ export interface Document {
     name: string;
     uploadDate: string;
     url: string;
-    userId: number;
+    userId: string; // Changed from number
     childId: number;
 }
 
