@@ -11,28 +11,36 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === 'undefined') {
-      return 'light';
+    // This part is client-side only, and runs once to set the initial theme.
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        return savedTheme;
+      }
+      // If no saved theme, check the user's OS preference.
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-      return savedTheme;
-    }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    // Default for server-side rendering (not applicable here, but good practice)
+    return 'light';
   });
 
   useEffect(() => {
     const root = window.document.documentElement;
-    // Forcefully remove the other theme and add the current one.
+    
+    // The core logic: if the theme is 'dark', add the 'dark' class. If it's 'light', remove it.
     if (theme === 'dark') {
-      root.classList.remove('light');
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
-      root.classList.add('light');
     }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    
+    // Persist the user's choice to localStorage.
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (error) {
+      console.error("Could not save theme to localStorage", error);
+    }
+  }, [theme]); // This effect runs every time the theme state changes.
 
   const toggleTheme = () => {
     setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
