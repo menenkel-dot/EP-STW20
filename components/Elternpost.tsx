@@ -5,8 +5,24 @@ import { useAuth } from '../hooks/useAuth';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { postsAPI, groupsAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
+// Helper to convert base64 string to a File object for uploading
+const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) {
+        throw new Error('Invalid data URL');
+    }
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+};
 
 interface ElternpostProps {
   addNotification: (message: string) => void;
@@ -29,18 +45,35 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!user) return;
       setIsLoading(true);
       try {
-        const [postsData, groupsData] = await Promise.all([
-          postsAPI.getAll(),
-          groupsAPI.getAll()
-        ]);
-        const parsedPosts = postsData.map((post: any) => ({
-          ...post,
-          groupIds: typeof post.groupIds === 'string' ? JSON.parse(post.groupIds) : post.groupIds
+        const { data: postsData, error: postsError } = await supabase
+          .from('posts')
+          .select('*, author:profiles(name)')
+          .order('created_at', { ascending: false });
+
+        if (postsError) throw postsError;
+
+        const mappedPosts: Post[] = postsData.map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          content: p.content,
+          imageUrl: p.image_url,
+          author: p.author?.name || 'Unbekannt',
+          date: new Date(p.created_at).toLocaleDateString('de-DE'),
+          groupIds: p.group_ids || [],
+          createdAt: p.created_at,
         }));
-        setPosts(parsedPosts);
+        setPosts(mappedPosts);
+
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('groups')
+          .select('*');
+        
+        if (groupsError) throw groupsError;
         setGroups(groupsData);
+
       } catch (error) {
         console.error('Fehler beim Laden der Daten:', error);
       } finally {
@@ -48,7 +81,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
       }
     };
     loadData();
-  }, []);
+  }, [user]);
 
   const handleOpenModal = (post: Post | null = null) => {
     if (post) {
@@ -83,59 +116,117 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
   };
 
   const handleSavePost = async () => {
-    if (!title || !content) {
+    if (!title || !content || !user) {
       alert("Bitte Titel und Inhalt ausfüllen.");
       return;
     }
 
     setIsLoading(true);
     try {
+      let finalImageUrl = imageUrl;
+
+      // Handle image upload if a new image (base64) is present
+      if (imageUrl && imageUrl.startsWith('data:image')) {
+        const file = dataURLtoFile(imageUrl, `post-image-${Date.now()}`);
+        const filePath = `public/${user.id}/${file.name}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('post_images')
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('post_images')
+          .getPublicUrl(filePath);
+        
+        finalImageUrl = publicUrl;
+      }
+
+      const postData = {
+        title,
+        content,
+        image_url: finalImageUrl || null,
+        group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : null,
+        author_id: user.id,
+      };
+
       if (editingPost) {
-        const updated = await postsAPI.update(editingPost.id, { 
-          title, 
-          content, 
-          imageUrl, 
-          groupIds: selectedGroupIds 
-        });
-        const parsedPost = {
-          ...updated,
-          groupIds: typeof updated.groupIds === 'string' ? JSON.parse(updated.groupIds) : updated.groupIds
+        const { data, error } = await supabase
+          .from('posts')
+          .update({ ...postData, author_id: undefined }) // author doesn't change on update
+          .eq('id', editingPost.id)
+          .select('*, author:profiles(name)')
+          .single();
+        
+        if (error) throw error;
+        
+        const updatedPost: Post = {
+          id: data.id,
+          title: data.title,
+          content: data.content,
+          imageUrl: data.image_url,
+          author: data.author?.name || 'Unbekannt',
+          date: new Date(data.created_at).toLocaleDateString('de-DE'),
+          groupIds: data.group_ids || [],
+          createdAt: data.created_at,
         };
-        setPosts(posts.map(p => p.id === editingPost.id ? parsedPost : p));
+        setPosts(posts.map(p => p.id === editingPost.id ? updatedPost : p));
       } else {
-        const newPost = await postsAPI.create({
-          title,
-          content,
-          imageUrl,
-          groupIds: selectedGroupIds,
-          author: user?.name || 'Admin',
-          date: new Date().toLocaleDateString('de-DE'),
-        });
-        const parsedPost = {
-          ...newPost,
-          groupIds: typeof newPost.groupIds === 'string' ? JSON.parse(newPost.groupIds) : newPost.groupIds
+        const { data, error } = await supabase
+          .from('posts')
+          .insert(postData)
+          .select('*, author:profiles(name)')
+          .single();
+
+        if (error) throw error;
+
+        const newPost: Post = {
+          id: data.id,
+          title: data.title,
+          content: data.content,
+          imageUrl: data.image_url,
+          author: data.author?.name || 'Unbekannt',
+          date: new Date(data.created_at).toLocaleDateString('de-DE'),
+          groupIds: data.group_ids || [],
+          createdAt: data.created_at,
         };
-        setPosts([parsedPost, ...posts]);
+        setPosts([newPost, ...posts]);
         addNotification(`Neue Elternpost: ${title}`);
       }
       handleCloseModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fehler beim Speichern der Elternpost:', error);
-      alert('Fehler beim Speichern der Elternpost. Bitte versuchen Sie es erneut.');
+      alert('Fehler beim Speichern: ' + error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeletePost = async (postId: number) => {
+  const handleDeletePost = async (postToDelete: Post) => {
     if (window.confirm("Sind Sie sicher, dass Sie diesen Beitrag löschen möchten?")) {
       setIsLoading(true);
       try {
-        await postsAPI.delete(postId);
-        setPosts(posts.filter(p => p.id !== postId));
-      } catch (error) {
+        // Delete image from storage if it exists
+        if (postToDelete.imageUrl) {
+          try {
+            const path = new URL(postToDelete.imageUrl).pathname.split('/post_images/')[1];
+            if (path) {
+              await supabase.storage.from('post_images').remove([path]);
+            }
+          } catch (storageError) {
+            console.warn("Konnte Bild nicht aus Storage löschen, fahre fort...", storageError);
+          }
+        }
+
+        // Delete post from DB
+        const { error } = await supabase.from('posts').delete().eq('id', postToDelete.id);
+        if (error) throw error;
+
+        setPosts(posts.filter(p => p.id !== postToDelete.id));
+      } catch (error: any) {
         console.error('Fehler beim Löschen der Elternpost:', error);
-        alert('Fehler beim Löschen der Elternpost. Bitte versuchen Sie es erneut.');
+        alert('Fehler beim Löschen: ' + error.message);
       } finally {
         setIsLoading(false);
       }
@@ -164,11 +255,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
     ? posts 
     : posts.filter(post => 
         !post.groupIds || post.groupIds.length === 0 || (activeChild && post.groupIds.includes(activeChild.groupId))
-    )).sort((a, b) => {
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
-      return dateB.getTime() - dateA.getTime();
-    });
+    ));
 
   return (
     <>
@@ -179,7 +266,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
             <Button onClick={() => handleOpenModal()}>+ Neue Elternpost</Button>
           )}
         </div>
-        {isLoading ? (
+        {isLoading && posts.length === 0 ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-600"></div>
           </div>
@@ -207,7 +294,7 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
                 {user?.role === UserRole.ADMIN && (
                   <div className="flex justify-end space-x-2 mt-4 pt-4 border-t">
                     <Button onClick={() => handleOpenModal(post)} variant="secondary">Bearbeiten</Button>
-                    <Button onClick={() => handleDeletePost(post.id)} variant="danger">Löschen</Button>
+                    <Button onClick={() => handleDeletePost(post)} variant="danger">Löschen</Button>
                   </div>
                 )}
               </div>
@@ -300,7 +387,9 @@ const Elternpost: React.FC<ElternpostProps> = ({ addNotification }) => {
             </div>
           </div>
           <div className="flex justify-end pt-4">
-            <Button onClick={handleSavePost}>Speichern</Button>
+            <Button onClick={handleSavePost} disabled={isLoading}>
+              {isLoading ? 'Speichern...' : 'Speichern'}
+            </Button>
           </div>
         </div>
       </Modal>

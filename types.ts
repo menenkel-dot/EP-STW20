@@ -40,6 +40,7 @@ export interface Post {
     author: string;
     date: string;
     groupIds?: number[];
+    createdAt: string;
 }
 
 export type EventType = 'event' | 'holiday' | 'closure';
