@@ -5,7 +5,7 @@ import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { holidayPeriodsAPI, holidayBookingsAPI, childrenAPI, groupsAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -333,28 +333,35 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!user) return;
       setIsLoading(true);
       try {
-        const periodsData = await holidayPeriodsAPI.getAll();
-        setPeriods(periodsData);
+        const [
+          { data: periodsData, error: periodsError },
+          { data: bookingsData, error: bookingsError },
+          { data: groupsData, error: groupsError }
+        ] = await Promise.all([
+          supabase.from('holiday_periods').select('*').order('start_date', { ascending: true }),
+          supabase.from('holiday_bookings').select('*'),
+          supabase.from('groups').select('*')
+        ]);
 
-        if (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) {
-          const [bookingsData, childrenData, groupsData] = await Promise.all([
-            holidayBookingsAPI.getAll(),
-            childrenAPI.getAll(),
-            groupsAPI.getAll()
-          ]);
-          setBookings(bookingsData);
-          setChildren(childrenData);
-          setGroups(groupsData);
-        } else if (activeChild) {
-          const [bookingsData, groupsData] = await Promise.all([
-            holidayBookingsAPI.getByChildId(activeChild.id),
-            groupsAPI.getAll()
-          ]);
-          setBookings(bookingsData);
-          setGroups(groupsData);
+        if (periodsError) throw periodsError;
+        if (bookingsError) throw bookingsError;
+        if (groupsError) throw groupsError;
+
+        setPeriods(periodsData.map(p => ({ id: p.id, name: p.name, startDate: p.start_date, endDate: p.end_date, deadline: p.deadline })));
+        setBookings(bookingsData.map(b => ({ id: b.id, childId: b.child_id, periodId: b.period_id, needsCare: b.needs_care, bookedFromDate: b.booked_from_date, bookedToDate: b.booked_to_date, bookedFromTime: b.booked_from_time, bookedToTime: b.booked_to_time, withLunch: b.with_lunch, earlyService: b.early_service })));
+        setGroups(groupsData);
+
+        if (user.role === UserRole.ADMIN || user.role === UserRole.GRUPPENLEITUNG) {
+          const { data: childrenData, error: childrenError } = await supabase.from('children').select('*');
+          if (childrenError) throw childrenError;
+          setChildren(childrenData.map(c => ({ id: c.id, name: c.name, groupId: c.group_id, avatarUrl: c.avatar_url || '' })));
+        } else {
+          setChildren(user.children);
         }
+
       } catch (error) {
         console.error('Fehler beim Laden der Feriendienst-Daten:', error);
       } finally {
@@ -389,21 +396,31 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
 
     setIsLoading(true);
     try {
+      const periodData = {
+        name: newPeriodName,
+        start_date: newPeriodStart,
+        end_date: newPeriodEnd,
+        deadline: newPeriodDeadline,
+      };
+
       if (editingPeriod) {
-        const updated = await holidayPeriodsAPI.update(editingPeriod.id, {
-          name: newPeriodName,
-          startDate: newPeriodStart,
-          endDate: newPeriodEnd,
-          deadline: newPeriodDeadline
-        });
-        setPeriods(periods.map(p => p.id === editingPeriod.id ? updated : p));
+        const { data, error } = await supabase
+          .from('holiday_periods')
+          .update(periodData)
+          .eq('id', editingPeriod.id)
+          .select()
+          .single();
+        if (error) throw error;
+        const updatedPeriod = { id: data.id, name: data.name, startDate: data.start_date, endDate: data.end_date, deadline: data.deadline };
+        setPeriods(periods.map(p => p.id === editingPeriod.id ? updatedPeriod : p));
       } else {
-        const newPeriod = await holidayPeriodsAPI.create({
-          name: newPeriodName,
-          startDate: newPeriodStart,
-          endDate: newPeriodEnd,
-          deadline: newPeriodDeadline,
-        });
+        const { data, error } = await supabase
+          .from('holiday_periods')
+          .insert(periodData)
+          .select()
+          .single();
+        if (error) throw error;
+        const newPeriod = { id: data.id, name: data.name, startDate: data.start_date, endDate: data.end_date, deadline: data.deadline };
         setPeriods([newPeriod, ...periods]);
       }
 
@@ -430,7 +447,8 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
       if (window.confirm('Sind Sie sicher, dass Sie diesen Ferienzeitraum löschen möchten?')) {
           setIsLoading(true);
           try {
-            await holidayPeriodsAPI.delete(periodId);
+            const { error } = await supabase.from('holiday_periods').delete().eq('id', periodId);
+            if (error) throw error;
             setPeriods(periods.filter(p => p.id !== periodId));
             if (selectedPeriod?.id === periodId) {
                 setSelectedPeriod(null);
@@ -467,9 +485,15 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
     if (!editingBooking || formNeedsCare === null) return;
 
     let bookingData: any = {
-      periodId: editingBooking.periodId,
-      childId: editingBooking.childId,
-      needsCare: formNeedsCare,
+      period_id: editingBooking.periodId,
+      child_id: editingBooking.childId,
+      needs_care: formNeedsCare,
+      booked_from_date: null,
+      booked_to_date: null,
+      booked_from_time: null,
+      booked_to_time: null,
+      with_lunch: null,
+      early_service: null,
     };
 
     if (formNeedsCare) {
@@ -479,23 +503,27 @@ const Feriendienst: React.FC<FeriendienstProps> = ({ addNotification }) => {
       }
       bookingData = {
         ...bookingData,
-        fromDate: formFromDate,
-        toDate: formToDate,
-        fromTime: formFromTime,
-        toTime: formToTime,
-        withLunch: formWithLunch,
-        earlyService: formEarlyService,
+        booked_from_date: formFromDate,
+        booked_to_date: formToDate,
+        booked_from_time: formFromTime,
+        booked_to_time: formToTime,
+        with_lunch: formWithLunch,
+        early_service: formEarlyService,
       };
     }
 
     setIsLoading(true);
     try {
       if (editingBooking.id === 0) {
-        const newBooking = await holidayBookingsAPI.create(bookingData);
+        const { data, error } = await supabase.from('holiday_bookings').insert(bookingData).select().single();
+        if (error) throw error;
+        const newBooking = { id: data.id, childId: data.child_id, periodId: data.period_id, needsCare: data.needs_care, bookedFromDate: data.booked_from_date, bookedToDate: data.booked_to_date, bookedFromTime: data.booked_from_time, bookedToTime: data.booked_to_time, withLunch: data.with_lunch, earlyService: data.early_service };
         setBookings([...bookings, newBooking]);
       } else {
-        const updated = await holidayBookingsAPI.update(editingBooking.id, bookingData);
-        setBookings(bookings.map(b => b.id === editingBooking.id ? updated : b));
+        const { data, error } = await supabase.from('holiday_bookings').update(bookingData).eq('id', editingBooking.id).select().single();
+        if (error) throw error;
+        const updatedBooking = { id: data.id, childId: data.child_id, periodId: data.period_id, needsCare: data.needs_care, bookedFromDate: data.booked_from_date, bookedToDate: data.booked_to_date, bookedFromTime: data.booked_from_time, bookedToTime: data.booked_to_time, withLunch: data.with_lunch, earlyService: data.early_service };
+        setBookings(bookings.map(b => b.id === editingBooking.id ? updatedBooking : b));
       }
       
       const period = periods.find(p => p.id === editingBooking.periodId);
