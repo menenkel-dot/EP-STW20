@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 // Helper to convert base64 string to a File object for uploading
 const dataURLtoFile = (dataurl: string, filename: string): File => {

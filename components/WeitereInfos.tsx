@@ -5,7 +5,7 @@ import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 const WeitereInfos: React.FC = () => {
     const { user } = useAuth();

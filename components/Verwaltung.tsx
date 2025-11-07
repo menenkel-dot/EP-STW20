@@ -5,7 +5,7 @@ import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 const Verwaltung: React.FC = () => {
     const { user: currentUser } = useAuth();

@@ -4,7 +4,7 @@ import Card from './Card';
 import { UserRole } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 // --- Widget Components (Extracted from original render) ---
 

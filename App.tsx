@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AuthContext } from './hooks/useAuth';
 import type { User, Notification, Child, UserRole } from './types';
-import { supabase } from './integrations/supabase/client';
+import { supabase } from './src/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import Login from './components/Login';
 import Layout from './components/Layout';

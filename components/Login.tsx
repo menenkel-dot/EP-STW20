@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 import Modal from './Modal';
 import Datenschutz from './Datenschutz';
 import Impressum from './Impressum';

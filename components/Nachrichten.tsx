@@ -4,7 +4,7 @@ import { UserRole } from '../types';
 import Button from './Button';
 import Card from './Card';
 import Modal from './Modal';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 import { useAuth } from '../hooks/useAuth';
 
 interface BackendUser {

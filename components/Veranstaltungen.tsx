@@ -6,7 +6,7 @@ import Button from './Button';
 import Modal from './Modal';
 import Calendar from './Calendar';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 const Veranstaltungen: React.FC = () => {
   const { user, activeChild } = useAuth();

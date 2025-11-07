@@ -4,7 +4,7 @@ import type { Absence, AbsenceReason, Child, Group } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 

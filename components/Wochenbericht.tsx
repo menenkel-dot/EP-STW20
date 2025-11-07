@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../src/integrations/supabase/client';
 
 interface WochenberichtProps {
   addNotification: (message: string) => void;
