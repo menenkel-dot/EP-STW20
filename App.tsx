@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [activeChild, setActiveChild] = useState<Child | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -35,6 +36,7 @@ const App: React.FC = () => {
     const setupUser = async () => {
       if (session?.user) {
         setIsLoading(true);
+        setProfileError(null); // Clear previous errors
         try {
           // Fetch profile
           let { data: profile, error: profileError } = await supabase
@@ -43,7 +45,7 @@ const App: React.FC = () => {
             .eq('id', session.user.id)
             .single();
 
-          // Handle case where profile doesn't exist (e.g., manual user creation in Supabase)
+          // Self-healing: if profile doesn't exist, create it.
           if (profileError && profileError.code === 'PGRST116') {
             console.warn('Profile not found for user, creating one...');
             const { data: newProfile, error: insertError } = await supabase
@@ -51,7 +53,7 @@ const App: React.FC = () => {
               .insert({
                 id: session.user.id,
                 username: session.user.email,
-                name: session.user.email, // Default name to email
+                name: session.user.email,
               })
               .select('username, name, role, avatar_url, assigned_group_id')
               .single();
@@ -98,9 +100,10 @@ const App: React.FC = () => {
           if (children.length > 0) {
             setActiveChild(children[0]);
           }
-        } catch (error) {
-          console.error('Fehler beim Laden des Benutzerprofils:', error);
-          await supabase.auth.signOut();
+        } catch (error: any) {
+          console.error('Full profile setup error:', error);
+          // DO NOT SIGN OUT. Instead, set the error to be displayed.
+          setProfileError(error.message || 'Ein unbekannter Fehler ist aufgetreten.');
         } finally {
           setIsLoading(false);
         }
@@ -137,6 +140,7 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setActiveChild(null);
     setNotifications([]);
+    setProfileError(null); // Clear error on logout
   };
 
   const handleSetActiveChild = (child: Child) => {
@@ -145,16 +149,9 @@ const App: React.FC = () => {
 
   const markNotificationAsRead = async (id: number) => {
     try {
-      // Optimistic UI update
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-      
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
-
+      const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
       if (error) {
-        // Revert on error
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: false } : n));
         throw error;
       }
@@ -166,14 +163,8 @@ const App: React.FC = () => {
   const addNotification = async (message: string, type: Notification['type'] = 'info') => {
     if (!currentUser) return;
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .insert({ user_id: currentUser.id, message, type })
-        .select()
-        .single();
-      
+      const { data, error } = await supabase.from('notifications').insert({ user_id: currentUser.id, message, type }).select().single();
       if (error) throw error;
-
       setNotifications(prev => [data as Notification, ...prev]);
     } catch (error) {
       console.error('Fehler beim Hinzufügen der Benachrichtigung:', error);
@@ -187,7 +178,7 @@ const App: React.FC = () => {
     setActiveChild: handleSetActiveChild,
   }), [currentUser, activeChild]);
 
-  if (isLoading) {
+  if (isLoading && !profileError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200">
         <div className="text-center">
@@ -199,7 +190,7 @@ const App: React.FC = () => {
   }
 
   if (!currentUser) {
-    return <Login />;
+    return <Login error={profileError} />;
   }
 
   return (

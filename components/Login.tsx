@@ -6,7 +6,11 @@ import Modal from './Modal';
 import Datenschutz from './Datenschutz';
 import Impressum from './Impressum';
 
-const Login: React.FC = () => {
+interface LoginProps {
+  error?: string | null;
+}
+
+const Login: React.FC<LoginProps> = ({ error }) => {
   const [showDatenschutz, setShowDatenschutz] = useState(false);
   const [showImpressum, setShowImpressum] = useState(false);
 
@@ -50,6 +54,13 @@ const Login: React.FC = () => {
           <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 whitespace-nowrap">Kinderhaus St. Wolfgang</h1>
           <p className="mt-2 text-gray-600">Willkommen im Elternportal</p>
         </div>
+        {error && (
+          <div className="p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
+            <h3 className="font-bold">Fehler beim Laden des Profils</h3>
+            <p className="mt-1">Ihre Anmeldedaten sind korrekt, aber Ihr Benutzerprofil konnte nicht geladen werden. Dies liegt meist an einem Datenkonflikt.</p>
+            <p className="mt-2 text-xs text-gray-600 bg-gray-100 p-2 rounded">Fehlerdetails: {error}</p>
+          </div>
+        )}
         <Auth
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
