@@ -37,19 +37,36 @@ const App: React.FC = () => {
         setIsLoading(true);
         try {
           // Fetch profile
-          const { data: profile, error: profileError } = await supabase
+          let { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('username, name, role, avatar_url, assigned_group_id')
             .eq('id', session.user.id)
             .single();
 
-          if (profileError) {
-            console.error('Supabase profile fetch error:', profileError.message);
+          // Handle case where profile doesn't exist (e.g., manual user creation in Supabase)
+          if (profileError && profileError.code === 'PGRST116') {
+            console.warn('Profile not found for user, creating one...');
+            const { data: newProfile, error: insertError } = await supabase
+              .from('profiles')
+              .insert({
+                id: session.user.id,
+                username: session.user.email,
+                name: session.user.email, // Default name to email
+              })
+              .select('username, name, role, avatar_url, assigned_group_id')
+              .single();
+
+            if (insertError) {
+              console.error('Error creating profile:', insertError.message);
+              throw insertError;
+            }
+            profile = newProfile;
+          } else if (profileError) {
             throw profileError;
           }
           
           if (!profile) {
-            throw new Error('User profile not found in database. This might be due to a data inconsistency.');
+            throw new Error('User profile could not be loaded or created.');
           }
 
           // Fetch children for the user
