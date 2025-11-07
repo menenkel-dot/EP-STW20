@@ -9,10 +9,6 @@ export default defineConfig(() => {
         host: '0.0.0.0',
         strictPort: true,
         allowedHosts: true as const,
-        hmr: {
-          protocol: 'wss',
-          clientPort: 443,
-        },
         proxy: {
           '/api': {
             target: 'http://localhost:3000',
