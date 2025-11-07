@@ -43,7 +43,14 @@ const App: React.FC = () => {
             .eq('id', session.user.id)
             .single();
 
-          if (profileError) throw profileError;
+          if (profileError) {
+            console.error('Supabase profile fetch error:', profileError.message);
+            throw profileError;
+          }
+          
+          if (!profile) {
+            throw new Error('User profile not found in database. This might be due to a data inconsistency.');
+          }
 
           // Fetch children for the user
           const { data: childrenData, error: childrenError } = await supabase
@@ -63,7 +70,7 @@ const App: React.FC = () => {
           const user: User = {
             id: session.user.id,
             username: profile.username || session.user.email || '',
-            name: profile.name || profile.username || 'Admin',
+            name: profile.name || profile.username || 'Benutzer',
             role: profile.role as UserRole,
             avatarUrl: profile.avatar_url || '',
             assignedGroupId: profile.assigned_group_id,
