@@ -62,8 +62,8 @@ const App: React.FC = () => {
 
           const user: User = {
             id: session.user.id,
-            username: profile.username,
-            name: profile.name,
+            username: profile.username || session.user.email || '',
+            name: profile.name || profile.username || 'Admin',
             role: profile.role as UserRole,
             avatarUrl: profile.avatar_url || '',
             assignedGroupId: profile.assigned_group_id,
