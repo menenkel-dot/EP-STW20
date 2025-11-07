@@ -1,7 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { UserRole, Document, Child } from '../types';
-import { documentsAPI, childrenAPI } from '../lib/client';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../integrations/supabase/client';
+
+// Helper to convert base64 string to a File object for uploading
+const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    if (!mimeMatch) {
+        throw new Error('Invalid data URL');
+    }
+    const mime = mimeMatch[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+};
 
 const Dokumente: React.FC = () => {
   const { user, activeChild } = useAuth();
@@ -28,8 +45,22 @@ const Dokumente: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await documentsAPI.getAll();
-      setDocuments(data);
+      const { data, error } = await supabase.from('documents').select('*');
+      if (error) throw error;
+
+      const formattedDocuments: Document[] = data.map(doc => {
+        const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(doc.storage_path);
+        return {
+          id: doc.id,
+          name: doc.name,
+          uploadDate: new Date(doc.upload_date).toLocaleDateString('de-DE'),
+          url: publicUrl,
+          storagePath: doc.storage_path,
+          childId: doc.child_id,
+          uploaderId: doc.uploader_id,
+        };
+      });
+      setDocuments(formattedDocuments);
     } catch (err: any) {
       console.error('Fehler beim Laden der Dokumente:', err);
       setError('Fehler beim Laden der Dokumente. Bitte versuchen Sie es später erneut.');
@@ -40,8 +71,9 @@ const Dokumente: React.FC = () => {
 
   const loadChildren = async () => {
     try {
-      const data = await childrenAPI.getAll();
-      setChildren(data);
+      const { data, error } = await supabase.from('children').select('*');
+      if (error) throw error;
+      setChildren(data.map(c => ({ id: c.id, name: c.name, groupId: c.group_id, avatarUrl: c.avatar_url })));
     } catch (err: any) {
       console.error('Fehler beim Laden der Kinder:', err);
     }
@@ -53,16 +85,13 @@ const Dokumente: React.FC = () => {
 
   const displayedDocuments = (user.role === UserRole.ADMIN) 
     ? documents 
-    : activeChild 
-      ? documents.filter(doc => doc.childId === activeChild.id)
-      : [];
+    : documents.filter(doc => doc.childId === null || (activeChild && doc.childId === activeChild.id));
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Max 10MB
-    if (file.size > 10 * 1024 * 1024) {
+    if (file.size > 10 * 1024 * 1024) { // Max 10MB
       alert('Datei ist zu groß. Maximale Größe: 10MB');
       return;
     }
@@ -70,29 +99,36 @@ const Dokumente: React.FC = () => {
     setFileName(file.name);
 
     const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setFileData(result);
-    };
-    reader.onerror = () => {
-      alert('Fehler beim Lesen der Datei');
-    };
+    reader.onload = () => setFileData(reader.result as string);
+    reader.onerror = () => alert('Fehler beim Lesen der Datei');
     reader.readAsDataURL(file);
   };
 
   const handleUpload = async () => {
-    if (!fileName || !fileData) {
+    if (!fileName || !fileData || !user) {
       alert('Bitte wählen Sie eine Datei aus');
       return;
     }
 
     try {
       setUploadLoading(true);
-      await documentsAPI.upload({
+      const file = dataURLtoFile(fileData, fileName);
+      const filePath = `public/${user.id}/${Date.now()}-${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { error: dbError } = await supabase.from('documents').insert({
         name: fileName,
-        childId: selectedChildId,
-        fileData: fileData
+        storage_path: filePath,
+        child_id: selectedChildId,
+        uploader_id: user.id,
       });
+
+      if (dbError) throw dbError;
       
       setShowUploadModal(false);
       setFileName('');
@@ -101,23 +137,28 @@ const Dokumente: React.FC = () => {
       await loadDocuments();
     } catch (err: any) {
       console.error('Fehler beim Hochladen:', err);
-      alert(err.response?.data?.error || 'Fehler beim Hochladen des Dokuments');
+      alert(err.message || 'Fehler beim Hochladen des Dokuments');
     } finally {
       setUploadLoading(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (doc: Document) => {
     if (!confirm('Möchten Sie dieses Dokument wirklich löschen?')) {
       return;
     }
 
     try {
-      await documentsAPI.delete(id);
+      const { error: storageError } = await supabase.storage.from('documents').remove([doc.storagePath]);
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase.from('documents').delete().eq('id', doc.id);
+      if (dbError) throw dbError;
+
       await loadDocuments();
     } catch (err: any) {
       console.error('Fehler beim Löschen:', err);
-      alert(err.response?.data?.error || 'Fehler beim Löschen des Dokuments');
+      alert(err.message || 'Fehler beim Löschen des Dokuments');
     }
   };
 
@@ -196,13 +237,15 @@ const Dokumente: React.FC = () => {
                       <a 
                         href={doc.url} 
                         download={doc.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-cyan-600 hover:text-cyan-900"
                       >
                         Download
                       </a>
                       {user.role === UserRole.ADMIN && (
                         <button
-                          onClick={() => handleDelete(doc.id)}
+                          onClick={() => handleDelete(doc)}
                           className="text-red-600 hover:text-red-900"
                         >
                           Löschen
@@ -247,7 +290,7 @@ const Dokumente: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Kind zuweisen (optional)
+                  Kind zuweisen (optional, sonst für alle sichtbar)
                 </label>
                 <select
                   value={selectedChildId || ''}

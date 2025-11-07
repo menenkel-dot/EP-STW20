@@ -81,8 +81,9 @@ export interface Document {
     name: string;
     uploadDate: string;
     url: string;
-    userId: string; // Changed from number
-    childId: number;
+    storagePath: string;
+    childId: number | null;
+    uploaderId: string;
 }
 
 export interface HolidayPeriod {
