@@ -5,6 +5,7 @@ import { supabase } from './src/integrations/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 import Login from './components/Login';
 import Layout from './components/Layout';
+import { ThemeProvider } from './hooks/useTheme';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -189,19 +190,21 @@ const App: React.FC = () => {
     );
   }
 
-  if (!currentUser) {
-    return <Login error={profileError} />;
-  }
-
   return (
-    <AuthContext.Provider value={authContextValue}>
-      <Layout 
-        user={currentUser} 
-        notifications={notifications}
-        markNotificationAsRead={markNotificationAsRead}
-        addNotification={addNotification}
-      />
-    </AuthContext.Provider>
+    <ThemeProvider>
+      {!currentUser ? (
+        <Login error={profileError} />
+      ) : (
+        <AuthContext.Provider value={authContextValue}>
+          <Layout 
+            user={currentUser} 
+            notifications={notifications}
+            markNotificationAsRead={markNotificationAsRead}
+            addNotification={addNotification}
+          />
+        </AuthContext.Provider>
+      )}
+    </ThemeProvider>
   );
 };
 

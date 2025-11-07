@@ -14,7 +14,7 @@ const LatestPostWidget: React.FC<{ latestPost: Post | null, setActiveView: (view
       <Card className="h-full">
         <div className="p-6">
           <h2 className="text-sm font-semibold text-cyan-600 uppercase tracking-wide">Neueste Elternpost</h2>
-          <p className="text-gray-500 mt-4">Keine Beiträge vorhanden</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-4">Keine Beiträge vorhanden</p>
         </div>
       </Card>
     );
@@ -23,9 +23,9 @@ const LatestPostWidget: React.FC<{ latestPost: Post | null, setActiveView: (view
     <Card onClick={() => setActiveView('elternpost')} className="hover:scale-105 h-full">
       <div className="p-6">
         <h2 className="text-sm font-semibold text-cyan-600 uppercase tracking-wide">Neueste Elternpost</h2>
-        <h3 className="text-xl font-bold text-gray-800 mt-2">{latestPost.title}</h3>
-        <p className="text-gray-600 mt-2 truncate">{latestPost.content}</p>
-        <div className="mt-4 text-cyan-700 font-semibold hover:text-cyan-800">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mt-2">{latestPost.title}</h3>
+        <p className="text-gray-600 dark:text-gray-300 mt-2 truncate">{latestPost.content}</p>
+        <div className="mt-4 text-cyan-700 font-semibold hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-300">
           Weiterlesen &rarr;
         </div>
       </div>
@@ -39,7 +39,7 @@ const UpcomingEventWidget: React.FC<{ upcomingEvent: Event | null, setActiveView
       <Card className="h-full">
         <div className="p-6">
           <h2 className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Nächste Veranstaltung</h2>
-          <p className="text-gray-500 mt-4">Keine Veranstaltungen geplant</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-4">Keine Veranstaltungen geplant</p>
         </div>
       </Card>
     );
@@ -48,9 +48,9 @@ const UpcomingEventWidget: React.FC<{ upcomingEvent: Event | null, setActiveView
     <Card onClick={() => setActiveView('veranstaltungen')} className="hover:scale-105 h-full">
       <div className="p-6">
         <h2 className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Nächste Veranstaltung</h2>
-        <h3 className="text-xl font-bold text-gray-800 mt-2">{upcomingEvent.title}</h3>
-        <p className="text-gray-600 mt-2">{new Date(upcomingEvent.date).toLocaleDateString('de-DE')} um {upcomingEvent.time}</p>
-         <div className="mt-4 text-amber-700 font-semibold hover:text-amber-800">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mt-2">{upcomingEvent.title}</h3>
+        <p className="text-gray-600 dark:text-gray-300 mt-2">{new Date(upcomingEvent.date).toLocaleDateString('de-DE')} um {upcomingEvent.time}</p>
+         <div className="mt-4 text-amber-700 font-semibold hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300">
           Details anzeigen &rarr;
         </div>
       </div>
@@ -61,23 +61,23 @@ const UpcomingEventWidget: React.FC<{ upcomingEvent: Event | null, setActiveView
 const QuickActionsWidget: React.FC<{ setActiveView: (view: View) => void }> = ({ setActiveView }) => {
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Schnellzugriff</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Schnellzugriff</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-         <div onClick={() => setActiveView('abwesenheit')} className="flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl hover:bg-rose-50 transition cursor-pointer">
+         <div onClick={() => setActiveView('abwesenheit')} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl hover:bg-rose-50 dark:hover:bg-gray-700 transition cursor-pointer">
               <div className="p-3 bg-rose-100 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-              <p className="mt-2 font-semibold text-gray-700 text-center">Abwesenheit melden</p>
+              <p className="mt-2 font-semibold text-gray-700 dark:text-gray-200 text-center">Abwesenheit melden</p>
           </div>
-         <div onClick={() => setActiveView('feriendienst')} className="flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl hover:bg-teal-50 transition cursor-pointer">
+         <div onClick={() => setActiveView('feriendienst')} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl hover:bg-teal-50 dark:hover:bg-gray-700 transition cursor-pointer">
               <div className="p-3 bg-teal-100 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-              <p className="mt-2 font-semibold text-gray-700">Feriendienst</p>
+              <p className="mt-2 font-semibold text-gray-700 dark:text-gray-200">Feriendienst</p>
           </div>
-          <div onClick={() => setActiveView('dokumente')} className="flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl hover:bg-sky-50 transition cursor-pointer">
+          <div onClick={() => setActiveView('dokumente')} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl hover:bg-sky-50 dark:hover:bg-gray-700 transition cursor-pointer">
               <div className="p-3 bg-sky-100 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg></div>
-              <p className="mt-2 font-semibold text-gray-700">Dokumente</p>
+              <p className="mt-2 font-semibold text-gray-700 dark:text-gray-200">Dokumente</p>
           </div>
-           <div onClick={() => setActiveView('nachrichten')} className="flex flex-col items-center justify-center p-4 bg-white rounded-xl shadow-lg hover:shadow-xl hover:bg-indigo-50 transition cursor-pointer">
+           <div onClick={() => setActiveView('nachrichten')} className="flex flex-col items-center justify-center p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl hover:bg-indigo-50 dark:hover:bg-gray-700 transition cursor-pointer">
               <div className="p-3 bg-indigo-100 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg></div>
-              <p className="mt-2 font-semibold text-gray-700">Nachrichten</p>
+              <p className="mt-2 font-semibold text-gray-700 dark:text-gray-200">Nachrichten</p>
           </div>
       </div>
     </div>
@@ -97,9 +97,9 @@ const WeeklyReportsWidget: React.FC<{ reports: WeeklyReport[] }> = ({ reports })
   if (reports.length === 0) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Aktuelle Wochenberichte</h2>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Aktuelle Wochenberichte</h2>
         <Card>
-          <p className="text-center py-8 text-gray-500">Keine Berichte vorhanden</p>
+          <p className="text-center py-8 text-gray-500 dark:text-gray-400">Keine Berichte vorhanden</p>
         </Card>
       </div>
     );
@@ -107,20 +107,20 @@ const WeeklyReportsWidget: React.FC<{ reports: WeeklyReport[] }> = ({ reports })
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Aktuelle Wochenberichte</h2>
+      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Aktuelle Wochenberichte</h2>
       <div className="space-y-3">
         {reports.slice(0, 3).map((report) => (
           <Card key={report.id}>
             <div className="p-4">
               <div className="flex items-center gap-3 mb-2">
-                <span className="bg-violet-100 text-violet-800 px-3 py-1 rounded-full text-sm font-medium">
+                <span className="bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200 px-3 py-1 rounded-full text-sm font-medium">
                   {report.groupName || 'Unbekannt'}
                 </span>
-                <span className="text-gray-600 text-sm">
+                <span className="text-gray-600 dark:text-gray-400 text-sm">
                   {formatDate(report.date)}
                 </span>
               </div>
-              <p className="text-gray-700 text-sm line-clamp-2">
+              <p className="text-gray-700 dark:text-gray-300 text-sm line-clamp-2">
                 {report.dailyReport}
               </p>
             </div>
@@ -323,8 +323,8 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
     <div>
       <div className="flex justify-between items-center">
         <div>
-            <h1 className="text-3xl font-bold text-gray-800">{greeting}</h1>
-            <p className="text-gray-600 mt-1">{subGreeting}</p>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">{greeting}</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">{subGreeting}</p>
         </div>
         {user.role === UserRole.PARENT && (
             <Button onClick={handleToggleEditMode} variant={isEditMode ? 'secondary' : 'primary'}>
@@ -342,18 +342,18 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
                 return (
                     <div 
                         key={widgetId} 
-                        className={`${config.className} relative border-2 border-dashed ${isVisible ? 'border-gray-300' : 'border-gray-200'} rounded-xl`}
+                        className={`${config.className} relative border-2 border-dashed ${isVisible ? 'border-gray-300 dark:border-gray-600' : 'border-gray-200 dark:border-gray-700'} rounded-xl`}
                         draggable
                         onDragStart={(e) => handleDragStart(e, widgetId)}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, widgetId)}
                     >
-                        <div className="absolute top-0 left-0 w-full p-2 bg-gray-200 rounded-t-lg flex justify-between items-center z-10 cursor-grab">
-                            <span className="font-bold text-gray-700">{config.title}</span>
-                            <button onClick={() => handleToggleVisibility(widgetId)} title={isVisible ? 'Ausblenden' : 'Einblenden'} className="p-1 rounded-full hover:bg-gray-300">
+                        <div className="absolute top-0 left-0 w-full p-2 bg-gray-200 dark:bg-gray-700 rounded-t-lg flex justify-between items-center z-10 cursor-grab">
+                            <span className="font-bold text-gray-700 dark:text-gray-200">{config.title}</span>
+                            <button onClick={() => handleToggleVisibility(widgetId)} title={isVisible ? 'Ausblenden' : 'Einblenden'} className="p-1 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600">
                                 {isVisible ? 
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C3.732 4.943 7.523 3 10 3s6.268 1.943 9.542 7c-3.274 5.057-7.03 7-9.542 7S3.732 15.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg> :
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.27 8.138 15.824 5.865 13.333 4.43c-1.125-.547-2.29-.84-3.333-.84-.586 0-1.158.067-1.713.19l-1.29-1.29zM10 15c-3.446 0-6.237-2.31-7.952-4.542C3.12 9.208 4.79 7.742 6.32 6.744L4.99 5.414A12.016 12.016 0 00.458 10C3.732 15.057 7.523 17 10 17c.51 0 1.012-.04 1.503-.114l-1.38-1.38A3.997 3.997 0 0110 15z" clipRule="evenodd" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C3.732 4.943 7.523 3 10 3s6.268 1.943 9.542 7c-3.274 5.057-7.03 7-9.542 7S3.732 15.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg> :
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.27 8.138 15.824 5.865 13.333 4.43c-1.125-.547-2.29-.84-3.333-.84-.586 0-1.158.067-1.713.19l-1.29-1.29zM10 15c-3.446 0-6.237-2.31-7.952-4.542C3.12 9.208 4.79 7.742 6.32 6.744L4.99 5.414A12.016 12.016 0 00.458 10C3.732 15.057 7.523 17 10 17c.51 0 1.012-.04 1.503-.114l-1.38-1.38A3.997 3.997 0 0110 15z" clipRule="evenodd" /></svg>
                                 }
                             </button>
                         </div>
@@ -371,7 +371,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
             ))
         }
         {(!isEditMode && user.role === UserRole.PARENT && visibleWidgets.length === 0) && (
-            <div className="lg:col-span-2 text-center py-12 text-gray-500 bg-white rounded-xl shadow-lg">
+            <div className="lg:col-span-2 text-center py-12 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
                 <p>Alle Widgets sind ausgeblendet.</p>
                 <p className="mt-2">Klicken Sie auf "Anpassen", um sie wieder einzublenden.</p>
             </div>

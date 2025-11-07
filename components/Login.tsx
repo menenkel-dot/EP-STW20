@@ -5,12 +5,14 @@ import { supabase } from '../src/integrations/supabase/client';
 import Modal from './Modal';
 import Datenschutz from './Datenschutz';
 import Impressum from './Impressum';
+import { useTheme } from '../hooks/useTheme';
 
 interface LoginProps {
   error?: string | null;
 }
 
 const Login: React.FC<LoginProps> = ({ error }) => {
+  const { theme } = useTheme();
   const [showDatenschutz, setShowDatenschutz] = useState(false);
   const [showImpressum, setShowImpressum] = useState(false);
 
@@ -52,10 +54,10 @@ const Login: React.FC<LoginProps> = ({ error }) => {
         ))}
       </div>
 
-      <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-2xl shadow-2xl relative z-10">
+      <div className="w-full max-w-md p-8 space-y-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl relative z-10">
         <div className="text-center">
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 whitespace-nowrap">Kinderhaus St. Wolfgang</h1>
-          <p className="mt-2 text-gray-600">Willkommen im Elternportal</p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">Kinderhaus St. Wolfgang</h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300">Willkommen im Elternportal</p>
         </div>
         {error && (
           <div className="p-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">
@@ -70,6 +72,7 @@ const Login: React.FC<LoginProps> = ({ error }) => {
           providers={[]}
           showLinks={false}
           view="sign_in"
+          theme={theme}
           localization={{
             variables: {
               sign_in: {
@@ -83,12 +86,12 @@ const Login: React.FC<LoginProps> = ({ error }) => {
             },
           }}
         />
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <button onClick={() => setShowDatenschutz(true)} className="hover:text-cyan-600 underline">
+        <div className="mt-6 text-center text-sm text-gray-600 dark:text-gray-400">
+          <button onClick={() => setShowDatenschutz(true)} className="hover:text-cyan-600 dark:hover:text-cyan-400 underline">
             Datenschutzerklärung
           </button>
           <span className="mx-2">•</span>
-          <button onClick={() => setShowImpressum(true)} className="hover:text-cyan-600 underline">
+          <button onClick={() => setShowImpressum(true)} className="hover:text-cyan-600 dark:hover:text-cyan-400 underline">
             Impressum
           </button>
         </div>

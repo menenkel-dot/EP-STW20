@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
       />
       
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-30 flex-shrink-0 w-64 bg-white shadow-lg transform transition-transform md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-30 flex-shrink-0 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform md:relative md:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between h-20 shadow-md bg-cyan-600 text-white px-4">
             <h1 className="text-xl font-bold whitespace-nowrap">Kinderhaus St. Wolfgang</h1>
             <button onClick={onClose} className="md:hidden p-2">
@@ -54,8 +54,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
           {navItems.map((item, index) => (
             <React.Fragment key={item.view}>
               <a
-                className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
-                  activeView === item.view ? 'bg-cyan-100 text-cyan-800' : ''
+                className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-200 ${
+                  activeView === item.view ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-100' : ''
                 }`}
                 href="#"
                 onClick={(e) => {
@@ -67,8 +67,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
               </a>
               {index === 0 && (user.role === UserRole.ADMIN || user.role === UserRole.GRUPPENLEITUNG) && (
                 <a
-                  className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
-                    activeView === 'wochenbericht' ? 'bg-cyan-100 text-cyan-800' : ''
+                  className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-200 ${
+                    activeView === 'wochenbericht' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-100' : ''
                   }`}
                   href="#"
                   onClick={(e) => {
@@ -84,8 +84,8 @@ const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, isOp
           {user.role === UserRole.ADMIN && (
              <a
               key="verwaltung"
-              className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 ${
-                activeView === 'verwaltung' ? 'bg-cyan-100 text-cyan-800' : ''
+              className={`flex items-center px-4 py-3 mt-2 text-gray-600 rounded-lg hover:bg-gray-200 hover:text-gray-700 transition-colors duration-200 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-200 ${
+                activeView === 'verwaltung' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-800 dark:text-cyan-100' : ''
               }`}
               href="#"
               onClick={(e) => {
