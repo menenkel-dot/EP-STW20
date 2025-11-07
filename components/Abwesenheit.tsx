@@ -4,7 +4,7 @@ import type { Absence, AbsenceReason, Child, Group } from '../types';
 import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
-import { absencesAPI, childrenAPI, groupsAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -161,40 +161,44 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
 
     useEffect(() => {
         const loadData = async () => {
-            if (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) {
-                setIsLoading(true);
-                try {
-                    const [childrenData, groupsData, absencesData] = await Promise.all([
-                        childrenAPI.getAll(),
-                        groupsAPI.getAll(),
-                        absencesAPI.getAll()
-                    ]);
-                    setChildren(childrenData);
-                    setGroups(groupsData);
-                    setAbsences(absencesData);
-                } catch (error) {
-                    console.error('Fehler beim Laden der Daten:', error);
-                    addNotification('Fehler beim Laden der Daten');
-                } finally {
-                    setIsLoading(false);
-                }
-                return;
-            }
-            if (!activeChild) {
-                setAbsences([]);
-                return;
-            }
             setIsLoading(true);
             try {
-                const [absencesData, groupsData] = await Promise.all([
-                    absencesAPI.getByChildId(activeChild.id),
-                    groupsAPI.getAll()
-                ]);
-                setAbsences(absencesData);
+                if (user?.role === UserRole.ADMIN || user?.role === UserRole.GRUPPENLEITUNG) {
+                    const [
+                        { data: childrenData, error: childrenError },
+                        { data: groupsData, error: groupsError },
+                        { data: absencesData, error: absencesError }
+                    ] = await Promise.all([
+                        supabase.from('children').select('*'),
+                        supabase.from('groups').select('*'),
+                        supabase.from('absences').select('*')
+                    ]);
+
+                    if (childrenError) throw childrenError;
+                    if (groupsError) throw groupsError;
+                    if (absencesError) throw absencesError;
+
+                    setChildren(childrenData.map(c => ({ id: c.id, name: c.name, groupId: c.group_id, avatarUrl: c.avatar_url })));
+                    setGroups(groupsData);
+                    setAbsences(absencesData.map(a => ({ id: a.id, childId: a.child_id, startDate: a.start_date, endDate: a.end_date, reason: a.reason, symptoms: a.symptoms, reportedAt: a.reported_at })));
+                } else if (activeChild) {
+                    const { data: absencesData, error: absencesError } = await supabase
+                        .from('absences')
+                        .select('*')
+                        .eq('child_id', activeChild.id);
+                    if (absencesError) throw absencesError;
+                    setAbsences(absencesData.map(a => ({ id: a.id, childId: a.child_id, startDate: a.start_date, endDate: a.end_date, reason: a.reason, symptoms: a.symptoms, reportedAt: a.reported_at })));
+                } else {
+                    setAbsences([]);
+                }
+                // Always load groups for everyone
+                const { data: groupsData, error: groupsError } = await supabase.from('groups').select('*');
+                if (groupsError) throw groupsError;
                 setGroups(groupsData);
+
             } catch (error) {
-                console.error('Fehler beim Laden der Abwesenheiten:', error);
-                addNotification('Fehler beim Laden der Abwesenheiten');
+                console.error('Fehler beim Laden der Daten:', error);
+                addNotification('Fehler beim Laden der Daten');
             } finally {
                 setIsLoading(false);
             }
@@ -218,14 +222,21 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
 
         setIsLoading(true);
         try {
-            const newAbsence = await absencesAPI.create({
-                childId: activeChild.id,
-                startDate,
-                endDate,
-                reason,
-                symptoms: reason === 'krank' ? symptoms : undefined,
-            });
+            const { data, error } = await supabase
+                .from('absences')
+                .insert({
+                    child_id: activeChild.id,
+                    start_date: startDate,
+                    end_date: endDate,
+                    reason,
+                    symptoms: reason === 'krank' ? symptoms : undefined,
+                })
+                .select()
+                .single();
 
+            if (error) throw error;
+
+            const newAbsence: Absence = { id: data.id, childId: data.child_id, startDate: data.start_date, endDate: data.end_date, reason: data.reason, symptoms: data.symptoms, reportedAt: data.reported_at };
             setAbsences(prev => [newAbsence, ...prev]);
             addNotification(`Abwesenheit für ${activeChild.name} wurde gemeldet.`);
 
@@ -245,12 +256,15 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     const handleDeleteAbsence = async (absenceId: number) => {
         if (window.confirm("Sind Sie sicher, dass Sie diese Abwesenheitsmeldung löschen möchten?")) {
             const absenceToDelete = absences.find(a => a.id === absenceId);
-            if (absenceToDelete && activeChild) {
+            if (absenceToDelete) {
                 setIsLoading(true);
                 try {
-                    await absencesAPI.delete(absenceId);
+                    const { error } = await supabase.from('absences').delete().eq('id', absenceId);
+                    if (error) throw error;
+
                     setAbsences(prev => prev.filter(a => a.id !== absenceId));
-                    addNotification(`Abwesenheitsmeldung für ${activeChild.name} vom ${formatDate(absenceToDelete.startDate)} wurde gelöscht.`);
+                    const childName = activeChild?.name || getChildById(absenceToDelete.childId)?.name || 'dem Kind';
+                    addNotification(`Abwesenheitsmeldung für ${childName} vom ${formatDate(absenceToDelete.startDate)} wurde gelöscht.`);
                 } catch (error) {
                     console.error('Fehler beim Löschen der Abwesenheit:', error);
                     alert('Fehler beim Löschen der Abwesenheit. Bitte versuchen Sie es erneut.');
@@ -283,14 +297,21 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
 
         setIsLoading(true);
         try {
-            const newAbsence = await absencesAPI.create({
-                childId: selectedChildId,
-                startDate: adminStartDate,
-                endDate: adminEndDate,
-                reason: adminReason,
-                symptoms: adminReason === 'krank' ? adminSymptoms : undefined,
-            });
+            const { data, error } = await supabase
+                .from('absences')
+                .insert({
+                    child_id: selectedChildId,
+                    start_date: adminStartDate,
+                    end_date: adminEndDate,
+                    reason: adminReason,
+                    symptoms: adminReason === 'krank' ? adminSymptoms : undefined,
+                })
+                .select()
+                .single();
+            
+            if (error) throw error;
 
+            const newAbsence: Absence = { id: data.id, childId: data.child_id, startDate: data.start_date, endDate: data.end_date, reason: data.reason, symptoms: data.symptoms, reportedAt: data.reported_at };
             setAbsences(prev => [newAbsence, ...prev]);
             addNotification(`Abwesenheit für ${selectedChild.name} wurde gemeldet.`);
 
@@ -308,37 +329,20 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
         }
     };
 
-
-
-    // Gefilterte Abwesenheiten mit useMemo
     const filteredAbsences = React.useMemo(() => {
         return absences.filter(absence => {
             const child = getChildById(absence.childId);
             const groupName = child ? getGroupName(child.groupId) : 'N/A';
             
-            // Kind-Filter
-            if (filterChild && child && !child.name.toLowerCase().includes(filterChild.toLowerCase())) {
-                return false;
-            }
+            if (filterChild && child && !child.name.toLowerCase().includes(filterChild.toLowerCase())) return false;
+            if (filterGroup && !groupName.toLowerCase().includes(filterGroup.toLowerCase())) return false;
+            if (filterReason && absence.reason !== filterReason) return false;
             
-            // Gruppen-Filter
-            if (filterGroup && !groupName.toLowerCase().includes(filterGroup.toLowerCase())) {
-                return false;
-            }
-            
-            // Grund-Filter
-            if (filterReason && absence.reason !== filterReason) {
-                return false;
-            }
-            
-            // Datum-Filter (prüft ob das gefilterte Datum im Zeitraum liegt)
             if (filterDate) {
                 const filterDateObj = new Date(filterDate);
                 const startDateObj = new Date(absence.startDate);
                 const endDateObj = new Date(absence.endDate);
-                if (filterDateObj < startDateObj || filterDateObj > endDateObj) {
-                    return false;
-                }
+                if (filterDateObj < startDateObj || filterDateObj > endDateObj) return false;
             }
             
             return true;
@@ -346,18 +350,13 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
     }, [absences, filterChild, filterGroup, filterReason, filterDate, children, groups]);
 
     const AdminView = () => {
-
         return (
             <div>
                 <h1 className="text-3xl font-bold text-gray-800 mb-6">Übersicht der Abwesenheiten</h1>
                 
-                {/* Manual Reporting Section */}
                 <Card>
                     <div className="p-6">
                         <h2 className="text-xl font-bold text-gray-800 mb-4">Abwesenheit manuell melden</h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Verwenden Sie dieses Formular, um eine Abwesenheit manuell zu erfassen, falls diese telefonisch oder per Nachricht gemeldet wurde.
-                        </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Kind auswählen</label>
@@ -375,79 +374,26 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Grund der Abwesenheit</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Grund</label>
                                 <div className="flex space-x-4">
-                                    <label className="flex items-center">
-                                        <input 
-                                            type="radio" 
-                                            value="krank" 
-                                            checked={adminReason === 'krank'} 
-                                            onChange={() => setAdminReason('krank')} 
-                                            className="form-radio h-4 w-4 text-cyan-600"
-                                        />
-                                        <span className="ml-2 text-gray-700">Krankheit</span>
-                                    </label>
-                                    <label className="flex items-center">
-                                        <input 
-                                            type="radio" 
-                                            value="sonstige" 
-                                            checked={adminReason === 'sonstige'} 
-                                            onChange={() => setAdminReason('sonstige')} 
-                                            className="form-radio h-4 w-4 text-cyan-600"
-                                        />
-                                        <span className="ml-2 text-gray-700">Sonstige</span>
-                                    </label>
+                                    <label className="flex items-center"><input type="radio" value="krank" checked={adminReason === 'krank'} onChange={() => setAdminReason('krank')} className="form-radio h-4 w-4 text-cyan-600"/> <span className="ml-2">Krankheit</span></label>
+                                    <label className="flex items-center"><input type="radio" value="sonstige" checked={adminReason === 'sonstige'} onChange={() => setAdminReason('sonstige')} className="form-radio h-4 w-4 text-cyan-600"/> <span className="ml-2">Sonstige</span></label>
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label htmlFor="adminStartDate" className="block text-sm font-medium text-gray-700 mb-2">Von</label>
-                                    <input 
-                                        type="date" 
-                                        id="adminStartDate" 
-                                        value={adminStartDate} 
-                                        onChange={e => setAdminStartDate(e.target.value)} 
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                    />
+                                    <input type="date" id="adminStartDate" value={adminStartDate} onChange={e => setAdminStartDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
                                 </div>
                                 <div>
                                     <label htmlFor="adminEndDate" className="block text-sm font-medium text-gray-700 mb-2">Bis</label>
-                                    <input 
-                                        type="date" 
-                                        id="adminEndDate" 
-                                        value={adminEndDate} 
-                                        onChange={e => setAdminEndDate(e.target.value)} 
-                                        min={adminStartDate}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                    />
+                                    <input type="date" id="adminEndDate" value={adminEndDate} onChange={e => setAdminEndDate(e.target.value)} min={adminStartDate} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
                                 </div>
                             </div>
-                            {adminReason === 'krank' && (
-                                <div className="md:col-span-2">
-                                    <label htmlFor="adminSymptoms" className="block text-sm font-medium text-gray-700 mb-2">Symptome (Pflichtfeld)</label>
-                                    <textarea 
-                                        id="adminSymptoms" 
-                                        value={adminSymptoms} 
-                                        onChange={e => setAdminSymptoms(e.target.value)} 
-                                        rows={3} 
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                        placeholder="Beschreiben Sie die Symptome..."
-                                    ></textarea>
-                                </div>
-                            )}
-                            {adminReason === 'sonstige' && (
-                                <div className="md:col-span-2">
-                                    <label htmlFor="adminSymptoms" className="block text-sm font-medium text-gray-700 mb-2">Grund (optional)</label>
-                                    <textarea 
-                                        id="adminSymptoms" 
-                                        value={adminSymptoms} 
-                                        onChange={e => setAdminSymptoms(e.target.value)} 
-                                        rows={3} 
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                        placeholder="z.B. Arzttermin"
-                                    ></textarea>
-                                </div>
-                            )}
+                            <div className="md:col-span-2">
+                                <label htmlFor="adminSymptoms" className="block text-sm font-medium text-gray-700 mb-2">{adminReason === 'krank' ? 'Symptome (Pflichtfeld)' : 'Grund (optional)'}</label>
+                                <textarea id="adminSymptoms" value={adminSymptoms} onChange={e => setAdminSymptoms(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                            </div>
                             <div className="md:col-span-2 text-right">
                                 <Button onClick={handleAdminReportAbsence}>Abwesenheit erfassen</Button>
                             </div>
@@ -455,97 +401,34 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
                     </div>
                 </Card>
                 
-                {/* Filter Section */}
                 <Card>
                     <div className="p-4 bg-gray-50 border-b border-gray-200">
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">Filter</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Kind</label>
-                                <input
-                                    type="text"
-                                    value={filterChild}
-                                    onChange={(e) => setFilterChild(e.target.value)}
-                                    placeholder="Name eingeben..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Gruppe</label>
-                                <input
-                                    type="text"
-                                    value={filterGroup}
-                                    onChange={(e) => setFilterGroup(e.target.value)}
-                                    placeholder="Gruppe eingeben..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Grund</label>
-                                <select
-                                    value={filterReason}
-                                    onChange={(e) => setFilterReason(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                >
-                                    <option value="">Alle</option>
-                                    <option value="krank">Krank</option>
-                                    <option value="sonstige">Sonstige</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Datum (im Zeitraum)</label>
-                                <input
-                                    type="date"
-                                    value={filterDate}
-                                    onChange={(e) => setFilterDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                />
-                            </div>
+                            <input type="text" value={filterChild} onChange={(e) => setFilterChild(e.target.value)} placeholder="Kind..." className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                            <input type="text" value={filterGroup} onChange={(e) => setFilterGroup(e.target.value)} placeholder="Gruppe..." className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                            <select value={filterReason} onChange={(e) => setFilterReason(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"><option value="">Alle Gründe</option><option value="krank">Krank</option><option value="sonstige">Sonstige</option></select>
+                            <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
                         </div>
-                        {(filterChild || filterGroup || filterReason || filterDate) && (
-                            <div className="mt-3 flex items-center justify-between">
-                                <p className="text-sm text-gray-600">
-                                    {filteredAbsences.length} von {absences.length} Abwesenheiten
-                                </p>
-                                <button
-                                    onClick={() => {
-                                        setFilterChild('');
-                                        setFilterGroup('');
-                                        setFilterReason('');
-                                        setFilterDate('');
-                                    }}
-                                    className="text-sm text-cyan-600 hover:text-cyan-800 font-medium"
-                                >
-                                    Filter zurücksetzen
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </Card>
 
-                {/* Table */}
                 <Card>
                     <div className="overflow-x-auto">
                         {isLoading ? (
-                            <div className="flex justify-center py-8">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-                            </div>
+                            <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div></div>
                         ) : filteredAbsences.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">
-                                {absences.length === 0 
-                                    ? 'Keine Abwesenheiten gemeldet.' 
-                                    : 'Keine Abwesenheiten gefunden, die den Filterkriterien entsprechen.'}
-                            </div>
+                            <div className="p-8 text-center text-gray-500">{absences.length === 0 ? 'Keine Abwesenheiten gemeldet.' : 'Keine Abwesenheiten für Filter gefunden.'}</div>
                         ) : (
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kind</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gruppe</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zeitraum</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grund</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details / Symptome</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gemeldet am</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kind</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gruppe</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Zeitraum</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grund</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gemeldet am</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -557,11 +440,7 @@ const Abwesenheit: React.FC<AbwesenheitProps> = ({ addNotification }) => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{child?.name || 'Unbekannt'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{groupName}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(absence.startDate)} - {formatDate(absence.endDate)}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${absence.reason === 'krank' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                    {absence.reason === 'krank' ? 'Krank' : 'Sonstige'}
-                                                </span>
-                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${absence.reason === 'krank' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>{absence.reason === 'krank' ? 'Krank' : 'Sonstige'}</span></td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{absence.symptoms || '-'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(absence.reportedAt).toLocaleString('de-DE')}</td>
                                         </tr>
