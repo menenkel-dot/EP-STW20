@@ -65,6 +65,8 @@ const Login: React.FC<LoginProps> = ({ error }) => {
           supabaseClient={supabase}
           appearance={{ theme: ThemeSupa }}
           providers={[]}
+          showLinks={false}
+          view="sign_in"
           localization={{
             variables: {
               sign_in: {
@@ -74,12 +76,6 @@ const Login: React.FC<LoginProps> = ({ error }) => {
                 password_input_placeholder: 'Ihr Passwort',
                 button_label: 'Anmelden',
                 loading_button_label: 'Anmelden ...',
-              },
-              forgotten_password: {
-                email_label: 'Benutzername',
-                button_label: 'Passwort zurücksetzen',
-                loading_button_label: 'Senden ...',
-                link_text: 'Passwort vergessen?',
               },
             },
           }}
