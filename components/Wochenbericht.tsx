@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { weeklyReportsAPI, groupsAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
 interface WochenberichtProps {
   addNotification: (message: string) => void;
@@ -29,11 +29,28 @@ const Wochenbericht: React.FC<WochenberichtProps> = ({ addNotification }) => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [reportsData, groupsData] = await Promise.all([
-        weeklyReportsAPI.getAll(),
-        groupsAPI.getAll()
+      const [
+        { data: reportsData, error: reportsError },
+        { data: groupsData, error: groupsError }
+      ] = await Promise.all([
+        supabase.from('weekly_reports').select('*, group:groups(name)').order('date', { ascending: false }),
+        supabase.from('groups').select('*')
       ]);
-      setReports(reportsData);
+
+      if (reportsError) throw reportsError;
+      if (groupsError) throw groupsError;
+
+      const formattedReports: WeeklyReport[] = reportsData.map((r: any) => ({
+          id: r.id,
+          groupId: r.group_id,
+          groupName: r.group.name,
+          date: r.date,
+          dailyReport: r.daily_report,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+      }));
+
+      setReports(formattedReports);
       setGroups(groupsData);
       
       if (user?.role === 'gruppenleitung' && user.assignedGroupId) {
@@ -57,7 +74,7 @@ const Wochenbericht: React.FC<WochenberichtProps> = ({ addNotification }) => {
       if (user?.role === 'gruppenleitung' && user.assignedGroupId) {
         setSelectedGroupId(user.assignedGroupId);
       } else {
-        setSelectedGroupId(null);
+        setSelectedGroupId(groups.length > 0 ? groups[0].id : null);
       }
       setSelectedDate(new Date().toISOString().split('T')[0]);
       setDailyReport('');
@@ -78,15 +95,42 @@ const Wochenbericht: React.FC<WochenberichtProps> = ({ addNotification }) => {
     setIsLoading(true);
     try {
       if (editingReport) {
-        const updated = await weeklyReportsAPI.update(editingReport.id, { dailyReport });
-        setReports(reports.map(r => r.id === editingReport.id ? updated : r));
+        const { data, error } = await supabase
+          .from('weekly_reports')
+          .update({ daily_report: dailyReport })
+          .eq('id', editingReport.id)
+          .select('*, group:groups(name)')
+          .single();
+        if (error) throw error;
+        
+        const updatedReport: WeeklyReport = {
+          id: data.id,
+          groupId: data.group_id,
+          groupName: data.group.name,
+          date: data.date,
+          dailyReport: data.daily_report,
+        };
+        setReports(reports.map(r => r.id === editingReport.id ? updatedReport : r));
         addNotification('Bericht erfolgreich aktualisiert');
       } else {
-        const newReport = await weeklyReportsAPI.create({
-          groupId: selectedGroupId,
-          date: selectedDate,
-          dailyReport
-        });
+        const { data, error } = await supabase
+          .from('weekly_reports')
+          .insert({
+            group_id: selectedGroupId,
+            date: selectedDate,
+            daily_report: dailyReport
+          })
+          .select('*, group:groups(name)')
+          .single();
+        if (error) throw error;
+
+        const newReport: WeeklyReport = {
+          id: data.id,
+          groupId: data.group_id,
+          groupName: data.group.name,
+          date: data.date,
+          dailyReport: data.daily_report,
+        };
         setReports([newReport, ...reports]);
         addNotification('Bericht erfolgreich erstellt');
       }
@@ -106,7 +150,8 @@ const Wochenbericht: React.FC<WochenberichtProps> = ({ addNotification }) => {
 
     setIsLoading(true);
     try {
-      await weeklyReportsAPI.delete(id);
+      const { error } = await supabase.from('weekly_reports').delete().eq('id', id);
+      if (error) throw error;
       setReports(reports.filter(r => r.id !== id));
       addNotification('Bericht erfolgreich gelöscht');
     } catch (error) {
@@ -164,52 +209,50 @@ const Wochenbericht: React.FC<WochenberichtProps> = ({ addNotification }) => {
         <div className="space-y-4">
           {reports.map((report) => (
             <Card key={report.id}>
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                      {report.groupName || 'Unbekannt'}
-                    </span>
-                    <span className="text-gray-600 text-sm">
-                      {formatDate(report.date)}
-                    </span>
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {report.groupName || 'Unbekannt'}
+                      </span>
+                      <span className="text-gray-600 text-sm">
+                        {formatDate(report.date)}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                      Tagesablauf
+                    </h3>
+                    <div className="text-gray-700 whitespace-pre-wrap">
+                      {report.dailyReport}
+                    </div>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                    Tagesablauf
-                  </h3>
-                  <div className="text-gray-700 whitespace-pre-wrap">
-                    {report.dailyReport}
-                  </div>
+                  {canEdit && (
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleOpenModal(report)}
+                        className="text-blue-600 hover:text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="Bearbeiten"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteReport(report.id)}
+                        className="text-red-600 hover:text-red-700 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Löschen"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {canEdit && (
-                  <div className="flex gap-2 ml-4">
-                    <button
-                      onClick={() => handleOpenModal(report)}
-                      className="text-blue-600 hover:text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-50 transition-colors"
-                      title="Bearbeiten"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDeleteReport(report.id)}
-                      className="text-red-600 hover:text-red-700 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
-                      title="Löschen"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                )}
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
-        <h2 className="text-2xl font-bold mb-6 text-gray-800">
-          {editingReport ? 'Bericht bearbeiten' : 'Neuer Bericht'}
-        </h2>
-        
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingReport ? 'Bericht bearbeiten' : 'Neuer Bericht'}>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -257,7 +300,7 @@ const Wochenbericht: React.FC<WochenberichtProps> = ({ addNotification }) => {
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button onClick={handleCloseModal} disabled={isLoading}>
+            <Button onClick={handleCloseModal} variant="secondary" disabled={isLoading}>
               Abbrechen
             </Button>
             <Button onClick={handleSaveReport} disabled={isLoading}>

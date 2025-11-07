@@ -5,7 +5,7 @@ import { UserRole } from '../types';
 import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
-import { contactsAPI, settingsAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
 const WeitereInfos: React.FC = () => {
     const { user } = useAuth();
@@ -28,17 +28,15 @@ const WeitereInfos: React.FC = () => {
         const loadData = async () => {
             setIsLoading(true);
             try {
-                const contactsData = await contactsAPI.getAll();
+                const { data: contactsData, error: contactsError } = await supabase.from('contacts').select('*');
+                if (contactsError) throw contactsError;
                 setContacts(contactsData);
 
-                try {
-                    const menuSetting = await settingsAPI.get('menu_url');
-                    if (menuSetting && menuSetting.value) {
-                        setMenuUrl(menuSetting.value);
-                        setFormMenuUrl(menuSetting.value);
-                    }
-                } catch (error) {
-                    console.log('Menu URL nicht im Backend gefunden, verwende Default-Wert');
+                const { data: menuSetting, error: menuError } = await supabase.from('settings').select('value').eq('key', 'menu_url').single();
+                if (menuError) console.log('Menu URL nicht im Backend gefunden, verwende Default-Wert');
+                if (menuSetting && menuSetting.value) {
+                    setMenuUrl(menuSetting.value);
+                    setFormMenuUrl(menuSetting.value);
                 }
             } catch (error) {
                 console.error('Fehler beim Laden der Daten:', error);
@@ -79,22 +77,15 @@ const WeitereInfos: React.FC = () => {
 
         setIsLoading(true);
         try {
+            const contactData = { name: formName, role: formRole, phone: formPhone, email: formEmail };
             if (editingContact) {
-                const updated = await contactsAPI.update(editingContact.id, {
-                    name: formName,
-                    role: formRole,
-                    phone: formPhone,
-                    email: formEmail
-                });
-                setContacts(contacts.map(c => c.id === editingContact.id ? updated : c));
+                const { data, error } = await supabase.from('contacts').update(contactData).eq('id', editingContact.id).select().single();
+                if (error) throw error;
+                setContacts(contacts.map(c => c.id === editingContact.id ? data : c));
             } else {
-                const newContact = await contactsAPI.create({
-                    name: formName,
-                    role: formRole,
-                    phone: formPhone,
-                    email: formEmail
-                });
-                setContacts([...contacts, newContact]);
+                const { data, error } = await supabase.from('contacts').insert(contactData).select().single();
+                if (error) throw error;
+                setContacts([...contacts, data]);
             }
             handleCloseContactModal();
         } catch (error) {
@@ -109,7 +100,8 @@ const WeitereInfos: React.FC = () => {
         if (window.confirm("Sind Sie sicher, dass Sie diesen Kontakt löschen möchten?")) {
             setIsLoading(true);
             try {
-                await contactsAPI.delete(contactId);
+                const { error } = await supabase.from('contacts').delete().eq('id', contactId);
+                if (error) throw error;
                 setContacts(contacts.filter(c => c.id !== contactId));
             } catch (error) {
                 console.error('Fehler beim Löschen des Kontakts:', error);
@@ -123,7 +115,8 @@ const WeitereInfos: React.FC = () => {
     const handleSaveMenuUrl = async () => {
         setIsLoading(true);
         try {
-            await settingsAPI.update('menu_url', formMenuUrl);
+            const { error } = await supabase.from('settings').update({ value: formMenuUrl }).eq('key', 'menu_url');
+            if (error) throw error;
             setMenuUrl(formMenuUrl);
             setMenuModalOpen(false);
         } catch (error) {

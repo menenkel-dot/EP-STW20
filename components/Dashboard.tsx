@@ -4,6 +4,7 @@ import Card from './Card';
 import { UserRole } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import Button from './Button';
+import { supabase } from '../integrations/supabase/client';
 
 // --- Widget Components (Extracted from original render) ---
 
@@ -48,7 +49,7 @@ const UpcomingEventWidget: React.FC<{ upcomingEvent: Event | null, setActiveView
       <div className="p-6">
         <h2 className="text-sm font-semibold text-amber-600 uppercase tracking-wide">Nächste Veranstaltung</h2>
         <h3 className="text-xl font-bold text-gray-800 mt-2">{upcomingEvent.title}</h3>
-        <p className="text-gray-600 mt-2">{upcomingEvent.date} um {upcomingEvent.time}</p>
+        <p className="text-gray-600 mt-2">{new Date(upcomingEvent.date).toLocaleDateString('de-DE')} um {upcomingEvent.time}</p>
          <div className="mt-4 text-amber-700 font-semibold hover:text-amber-800">
           Details anzeigen &rarr;
         </div>
@@ -171,13 +172,11 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
         const savedVisibility = localStorage.getItem(`dashboardVisibility_${user.id}`);
         if (savedOrder) {
           const parsedOrder = JSON.parse(savedOrder);
-          // Ensure saved order contains all widgets, in case new widgets are added later
           const fullOrder = [...new Set([...parsedOrder, ...DEFAULT_ORDER])];
           setWidgetOrder(fullOrder);
         }
         if (savedVisibility) {
            const parsedVisibility = JSON.parse(savedVisibility);
-           // Merge with defaults to handle new widgets
            setWidgetVisibility({ ...DEFAULT_VISIBILITY, ...parsedVisibility });
         }
       } catch (error) {
@@ -191,66 +190,53 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveView }) => {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const [postsModule, eventsModule, groupsModule, reportsModule] = await Promise.all([
-          import('../lib/client').then(m => m.postsAPI.getAll()),
-          import('../lib/client').then(m => m.eventsAPI.getAll()),
-          import('../lib/client').then(m => m.groupsAPI.getAll()),
-          import('../lib/client').then(m => m.weeklyReportsAPI.getAll())
+        const [
+          { data: postsData, error: postsError },
+          { data: eventsData, error: eventsError },
+          { data: groupsData, error: groupsError },
+          { data: reportsData, error: reportsError }
+        ] = await Promise.all([
+          supabase.from('posts').select('*, author:profiles(name)').order('created_at', { ascending: false }),
+          supabase.from('events').select('*').order('date', { ascending: true }),
+          supabase.from('groups').select('*'),
+          supabase.from('weekly_reports').select('*, group:groups(name)').order('date', { ascending: false }).limit(5)
         ]);
-        
-        const parsedPosts = postsModule.map((post: any) => ({
-          ...post,
-          groupIds: typeof post.groupIds === 'string' ? JSON.parse(post.groupIds) : post.groupIds
-        }));
-        const parsedEvents = eventsModule.map((event: any) => ({
-          ...event,
-          groupIds: typeof event.groupIds === 'string' ? JSON.parse(event.groupIds) : event.groupIds
-        }));
+
+        if (postsError) throw postsError;
+        if (eventsError) throw eventsError;
+        if (groupsError) throw groupsError;
+        if (reportsError) throw reportsError;
 
         const visiblePosts = user?.role === UserRole.ADMIN 
-          ? parsedPosts 
-          : parsedPosts.filter((post: any) => 
-              !post.groupIds || post.groupIds.length === 0 || (activeChild && post.groupIds.includes(activeChild.groupId))
+          ? postsData 
+          : postsData.filter((post: any) => 
+              !post.group_ids || post.group_ids.length === 0 || (activeChild && post.group_ids.includes(activeChild.groupId))
           );
         const visibleEvents = user?.role === UserRole.ADMIN 
-          ? parsedEvents 
-          : parsedEvents.filter((event: any) => 
-              !event.groupIds || event.groupIds.length === 0 || (activeChild && event.groupIds.includes(activeChild.groupId))
+          ? eventsData 
+          : eventsData.filter((event: any) => 
+              !event.group_ids || event.group_ids.length === 0 || (activeChild && event.group_ids.includes(activeChild.groupId))
           );
 
-        // Hilfsfunktion: Deutsches Datum (DD.MM.YYYY) zu Date-Objekt
-        const parseGermanDate = (dateStr: string): Date => {
-          const [day, month, year] = dateStr.split('.');
-          return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        };
-
-        // Sortiere Posts nach Datum (neueste zuerst)
-        const sortedPosts = [...visiblePosts].sort((a, b) => {
-          const dateA = parseGermanDate(a.date).getTime();
-          const dateB = parseGermanDate(b.date).getTime();
-          return dateB - dateA; // Neueste zuerst
-        });
-
-        // Filtere nur zukünftige Events und sortiere nach Datum (nächste zuerst)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const upcomingEvents = [...visibleEvents]
-          .filter((event: any) => {
-            // Events verwenden YYYY-MM-DD Format, das kann direkt geparst werden
-            const eventDate = new Date(event.date);
-            eventDate.setHours(0, 0, 0, 0);
-            return eventDate >= today;
-          })
-          .sort((a, b) => {
-            const dateA = new Date(a.date).getTime();
-            const dateB = new Date(b.date).getTime();
-            return dateA - dateB; // Nächste zuerst
-          });
+        const upcomingEvents = visibleEvents
+          .filter((event: any) => new Date(event.date) >= today)
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        setLatestPost(sortedPosts[0] || null);
+        setLatestPost(visiblePosts[0] || null);
         setUpcomingEvent(upcomingEvents[0] || null);
-        setWeeklyReports(reportsModule);
-        setGroups(groupsModule);
+        
+        const formattedReports: WeeklyReport[] = reportsData.map((r: any) => ({
+            id: r.id,
+            groupId: r.group_id,
+            groupName: r.group.name,
+            date: r.date,
+            dailyReport: r.daily_report,
+        }));
+        setWeeklyReports(formattedReports);
+        setGroups(groupsData);
+
       } catch (error) {
         console.error('Fehler beim Laden der Dashboard-Daten:', error);
       }
