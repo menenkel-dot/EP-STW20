@@ -4,23 +4,17 @@ import { UserRole } from '../types';
 import Button from './Button';
 import Card from './Card';
 import Modal from './Modal';
-import { conversationsAPI, messagesAPI, usersAPI } from '../lib/client';
-
-interface ConversationWithMessages extends Omit<Conversation, 'messages'> {
-  messages: Message[];
-}
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../hooks/useAuth';
 
 interface BackendUser {
-  id: number;
+  id: string;
   name: string;
-  username: string;
-  email: string | null;
   role: string;
-  avatarUrl: string | null;
 }
 
 const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
-  const [conversations, setConversations] = useState<ConversationWithMessages[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(null);
   const [replyContent, setReplyContent] = useState('');
@@ -35,29 +29,27 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const getUserById = (id: number): BackendUser | undefined => {
+  const getUserById = (id: string): BackendUser | undefined => {
     return users.find(u => u.id === id);
   };
 
   const parentUsers = users.filter(u => u.role === UserRole.PARENT);
 
   useEffect(() => {
-    loadConversationsAndMessages();
+    loadInitialData();
   }, [user.id, user.role]);
 
   useEffect(() => {
-    loadUsers();
-  }, [user.role]);
-
-  useEffect(() => {
     // Auto-select conversation
-    if (user.role === UserRole.PARENT) {
-      const parentConvo = conversations.find(c => c.participantIds.includes(user.id));
-      if (parentConvo) {
-        setSelectedConversationId(parentConvo.id);
+    if (conversations.length > 0) {
+      if (user.role === UserRole.PARENT) {
+        const parentConvo = conversations.find(c => c.participantIds.includes(user.id));
+        if (parentConvo) {
+          setSelectedConversationId(parentConvo.id);
+        }
+      } else if (window.innerWidth >= 768) {
+        setSelectedConversationId(conversations[0].id);
       }
-    } else if (conversations.length > 0 && window.innerWidth >= 768) {
-      setSelectedConversationId(conversations[0].id);
     }
   }, [user.id, user.role, conversations]);
 
@@ -65,60 +57,33 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedConversationId, conversations]);
 
-  const loadUsers = async () => {
+  const loadInitialData = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      // Admin loads all users, parents load only staff
-      const fetchedUsers = user.role === UserRole.ADMIN 
-        ? await usersAPI.getAll() 
-        : await usersAPI.getStaff();
-      setUsers(fetchedUsers);
+      // Fetch users first
+      const { data: usersData, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, name, role');
+      if (usersError) throw usersError;
+      setUsers(usersData);
+
+      // Fetch conversations with messages
+      const { data: convosData, error: convosError } = await supabase
+        .from('conversations')
+        .select('*, messages(*)')
+        .contains('participant_ids', [user.id]);
+      if (convosError) throw convosError;
+
+      const formattedConversations: Conversation[] = convosData.map((c: any) => ({
+        id: c.id,
+        participantIds: c.participant_ids,
+        messages: c.messages.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
+      }));
+      setConversations(formattedConversations);
+
     } catch (err: any) {
-      console.error('Fehler beim Laden der Benutzer:', err);
-    }
-  };
-
-  const loadConversationsAndMessages = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const fetchedConversations = await conversationsAPI.getAll();
-      
-      const conversationsWithMessages: ConversationWithMessages[] = await Promise.all(
-        fetchedConversations.map(async (conv: any) => {
-          try {
-            const participantIds = typeof conv.participantIds === 'string' 
-              ? JSON.parse(conv.participantIds) 
-              : conv.participantIds;
-            
-            const messages = await messagesAPI.getByConversationId(conv.id);
-            
-            const sortedMessages = messages.sort((a: any, b: any) => 
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-            );
-            
-            return {
-              id: conv.id,
-              participantIds,
-              messages: sortedMessages
-            };
-          } catch (err) {
-            console.error(`Fehler beim Laden der Nachrichten für Konversation ${conv.id}:`, err);
-            const participantIds = typeof conv.participantIds === 'string' 
-              ? JSON.parse(conv.participantIds) 
-              : conv.participantIds;
-            return {
-              id: conv.id,
-              participantIds,
-              messages: []
-            };
-          }
-        })
-      );
-
-      setConversations(conversationsWithMessages);
-    } catch (err: any) {
-      console.error('Fehler beim Laden der Konversationen:', err);
+      console.error('Fehler beim Laden der Daten:', err);
       setError('Fehler beim Laden der Nachrichten. Bitte versuchen Sie es später erneut.');
     } finally {
       setLoading(false);
@@ -131,16 +96,14 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
     }
 
     try {
-      await conversationsAPI.delete(conversationId);
+      const { error } = await supabase.from('conversations').delete().eq('id', conversationId);
+      if (error) throw error;
       
-      // Wenn die gelöschte Konversation ausgewählt war, Auswahl zurücksetzen
       if (selectedConversationId === conversationId) {
         setSelectedConversationId(null);
       }
       
-      // Konversationen neu laden
-      await loadConversationsAndMessages();
-      
+      setConversations(conversations.filter(c => c.id !== conversationId));
       alert('Konversation erfolgreich gelöscht');
     } catch (err: any) {
       console.error('Fehler beim Löschen der Konversation:', err);
@@ -153,11 +116,17 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
 
     try {
       setSendingMessage(true);
+      const { data: newMessage, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: selectedConversationId,
+          content: replyContent,
+          sender_id: user.id,
+        })
+        .select()
+        .single();
 
-      const newMessage = await messagesAPI.create({
-        conversationId: selectedConversationId,
-        content: replyContent
-      });
+      if (error) throw error;
 
       setConversations(currentConversations =>
         currentConversations.map(c =>
@@ -166,7 +135,6 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
             : c
         )
       );
-
       setReplyContent('');
     } catch (err: any) {
       console.error('Fehler beim Senden der Nachricht:', err);
@@ -184,92 +152,46 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
 
     try {
       setSendingMessage(true);
+      const recipients = composerRecipient === 'all' ? parentUsers : [users.find(u => u.id === composerRecipient)].filter(Boolean);
 
-      if (composerRecipient === 'all') {
-        await Promise.all(
-          parentUsers.map(async (parent) => {
-            let existingConvo = conversations.find(c => 
-              c.participantIds.includes(parent.id) && c.participantIds.includes(user.id)
-            );
+      for (const recipient of recipients) {
+        if (!recipient) continue;
 
-            if (existingConvo) {
-              const newMessage = await messagesAPI.create({
-                conversationId: existingConvo.id,
-                content: composerContent
-              });
+        // Check for existing conversation
+        const { data: existingConvo, error: findError } = await supabase
+          .from('conversations')
+          .select('id')
+          .contains('participant_ids', [user.id, recipient.id])
+          .limit(1)
+          .single();
 
-              setConversations(currentConversations =>
-                currentConversations.map(c =>
-                  c.id === existingConvo!.id
-                    ? { ...c, messages: [...c.messages, newMessage] }
-                    : c
-                )
-              );
-            } else {
-              const newConversation = await conversationsAPI.create([parent.id, user.id]);
-              
-              const participantIds = typeof newConversation.participantIds === 'string'
-                ? JSON.parse(newConversation.participantIds)
-                : newConversation.participantIds;
-
-              const newMessage = await messagesAPI.create({
-                conversationId: newConversation.id,
-                content: composerContent
-              });
-
-              setConversations(currentConversations => [
-                ...currentConversations,
-                {
-                  id: newConversation.id,
-                  participantIds,
-                  messages: [newMessage]
-                }
-              ]);
-            }
-          })
-        );
-      } else {
-        const recipientId = parseInt(composerRecipient, 10);
-        let existingConvo = conversations.find(c => 
-          c.participantIds.includes(recipientId) && c.participantIds.includes(user.id)
-        );
+        let conversationId: number;
 
         if (existingConvo) {
-          const newMessage = await messagesAPI.create({
-            conversationId: existingConvo.id,
-            content: composerContent
-          });
-
-          setConversations(currentConversations =>
-            currentConversations.map(c =>
-              c.id === existingConvo!.id
-                ? { ...c, messages: [...c.messages, newMessage] }
-                : c
-            )
-          );
+          conversationId = existingConvo.id;
         } else {
-          const newConversation = await conversationsAPI.create([recipientId, user.id]);
-          
-          const participantIds = typeof newConversation.participantIds === 'string'
-            ? JSON.parse(newConversation.participantIds)
-            : newConversation.participantIds;
-
-          const newMessage = await messagesAPI.create({
-            conversationId: newConversation.id,
-            content: composerContent
-          });
-
-          setConversations(currentConversations => [
-            ...currentConversations,
-            {
-              id: newConversation.id,
-              participantIds,
-              messages: [newMessage]
-            }
-          ]);
+          // Create new conversation
+          const { data: newConvo, error: createError } = await supabase
+            .from('conversations')
+            .insert({ participant_ids: [user.id, recipient.id] })
+            .select('id')
+            .single();
+          if (createError) throw createError;
+          conversationId = newConvo.id;
         }
+
+        // Send message
+        const { error: msgError } = await supabase
+          .from('messages')
+          .insert({
+            conversation_id: conversationId,
+            content: composerContent,
+            sender_id: user.id,
+          });
+        if (msgError) throw msgError;
       }
       
+      await loadInitialData(); // Reload all data to reflect new conversations/messages
       setComposerContent('');
       setComposerRecipient('all');
       setComposerOpen(false);
@@ -305,7 +227,7 @@ const Nachrichten: React.FC<{ user: User }> = ({ user }) => {
         <Card className="flex items-center justify-center h-[70vh]">
           <div className="text-center">
             <p className="text-red-600 mb-4">{error}</p>
-            <Button onClick={loadConversationsAndMessages}>Erneut versuchen</Button>
+            <Button onClick={loadInitialData}>Erneut versuchen</Button>
           </div>
         </Card>
       </div>
