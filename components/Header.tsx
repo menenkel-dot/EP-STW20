@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { Notification, View } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import NotificationBell from './NotificationBell';
-import { usersAPI } from '../lib/client';
 
 interface HeaderProps {
   notifications: Notification[];
@@ -76,15 +75,10 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
             >
               <a
                 href="#"
-                onClick={async (e) => {
+                onClick={(e) => {
                   e.preventDefault();
-                  try {
-                    await usersAPI.exportData(user.id);
-                    setProfileMenuOpen(false);
-                  } catch (error) {
-                    console.error('Fehler beim Datenexport:', error);
-                    alert('Fehler beim Datenexport. Bitte versuchen Sie es erneut.');
-                  }
+                  alert('Datenexport ist in Kürze verfügbar.');
+                  setProfileMenuOpen(false);
                 }}
                 className="block px-4 py-2 text-sm text-gray-700 hover:bg-cyan-500 hover:text-white"
                 role="menuitem"
