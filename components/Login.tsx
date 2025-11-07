@@ -21,6 +21,9 @@ const Login: React.FC<LoginProps> = ({ error }) => {
     { emoji: '🌙', animation: 'float', top: '70%', left: '10%', delay: '2s', size: '2.8rem' },
     { emoji: '🛸', animation: 'bounce', top: '60%', left: '85%', delay: '1.5s', size: '2.2rem' },
     { emoji: '🌟', animation: 'twinkle', top: '40%', left: '5%', delay: '0.8s', size: '2rem' },
+    { emoji: '🌈', animation: 'float', top: '85%', left: '50%', delay: '0.2s', size: '3.5rem' },
+    { emoji: '☀️', animation: 'pulse', top: '5%', left: '5%', delay: '1.2s', size: '3.2rem' },
+    { emoji: '🦄', animation: 'bounce', top: '45%', left: '60%', delay: '2.5s', size: '2.5rem' },
   ];
 
   return (
