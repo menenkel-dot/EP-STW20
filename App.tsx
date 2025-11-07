@@ -45,8 +45,20 @@ const App: React.FC = () => {
 
           if (profileError) throw profileError;
 
-          // TODO: Fetch children from Supabase once the table is migrated
-          const children: Child[] = []; // Placeholder
+          // Fetch children for the user
+          const { data: childrenData, error: childrenError } = await supabase
+            .from('children')
+            .select('*')
+            .eq('parent_id', session.user.id);
+
+          if (childrenError) throw childrenError;
+
+          const children: Child[] = childrenData.map(c => ({
+            id: c.id,
+            name: c.name,
+            groupId: c.group_id,
+            avatarUrl: c.avatar_url || '',
+          }));
 
           const user: User = {
             id: session.user.id,

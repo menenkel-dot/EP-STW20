@@ -5,14 +5,13 @@ import Card from './Card';
 import Button from './Button';
 import Modal from './Modal';
 import { useAuth } from '../hooks/useAuth';
-import { authAPI, usersAPI, groupsAPI, childrenAPI } from '../lib/client';
+import { supabase } from '../integrations/supabase/client';
 
 const Verwaltung: React.FC = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
-    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-    const [isLoadingGroups, setIsLoadingGroups] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     // Modal states
@@ -21,9 +20,6 @@ const Verwaltung: React.FC = () => {
     const [isChildModalOpen, setChildModalOpen] = useState(false);
     const [isGroupModalOpen, setGroupModalOpen] = useState(false);
     const [isGroupEditModalOpen, setGroupEditModalOpen] = useState(false);
-    const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
-    const [userForPasswordReset, setUserForPasswordReset] = useState<User | null>(null);
-
     
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -31,51 +27,67 @@ const Verwaltung: React.FC = () => {
 
     // Load users and groups on mount
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                setIsLoadingUsers(true);
-                setIsLoadingGroups(true);
-                setError(null);
-
-                const [usersData, groupsData] = await Promise.all([
-                    usersAPI.getAll(),
-                    groupsAPI.getAll()
-                ]);
-
-                setUsers(usersData);
-                setGroups(groupsData);
-            } catch (err: any) {
-                console.error('Fehler beim Laden der Daten:', err);
-                setError(err.response?.data?.error || 'Fehler beim Laden der Daten');
-            } finally {
-                setIsLoadingUsers(false);
-                setIsLoadingGroups(false);
-            }
-        };
-
         loadData();
     }, []);
 
+    const loadData = async () => {
+        try {
+            setIsLoading(true);
+            setError(null);
+
+            const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('*, children(*)');
+
+            if (profilesError) throw profilesError;
+
+            const { data: groupsData, error: groupsError } = await supabase
+                .from('groups')
+                .select('*');
+
+            if (groupsError) throw groupsError;
+
+            const formattedUsers = profilesData.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                username: p.username,
+                role: p.role,
+                avatarUrl: p.avatar_url,
+                assignedGroupId: p.assigned_group_id,
+                children: p.children.map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    groupId: c.group_id,
+                    avatarUrl: c.avatar_url
+                }))
+            }));
+
+            setUsers(formattedUsers);
+            setGroups(groupsData);
+        } catch (err: any) {
+            console.error('Fehler beim Laden der Daten:', err);
+            setError(err.message || 'Fehler beim Laden der Daten');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Form state for new/edit user
     const [formUserName, setFormUserName] = useState('');
-    const [formUserUsername, setFormUserUsername] = useState('');
+    const [formUserEmail, setFormUserEmail] = useState('');
     const [formUserPassword, setFormUserPassword] = useState('');
     const [formUserRole, setFormUserRole] = useState<UserRole>(UserRole.PARENT);
     const [formUserAssignedGroupId, setFormUserAssignedGroupId] = useState<number | null>(null);
 
     // Form state for new child
     const [newChildName, setNewChildName] = useState('');
-    const [newChildGroupId, setNewChildGroupId] = useState(1);
+    const [newChildGroupId, setNewChildGroupId] = useState<number | undefined>(undefined);
 
     // Form state for new group
     const [newGroupName, setNewGroupName] = useState('');
-    
-    // Form state for password reset
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
 
     const getGroupName = (groupId: number): string => {
-        if (groupId === 0) return 'Ohne Gruppe';
+        if (!groupId) return 'Ohne Gruppe';
         return groups.find(g => g.id === groupId)?.name || 'N/A';
     };
 
@@ -83,14 +95,14 @@ const Verwaltung: React.FC = () => {
       if (user) {
         setEditingUser(user);
         setFormUserName(user.name);
-        setFormUserUsername(user.username);
+        setFormUserEmail(user.username); // username is email
         setFormUserRole(user.role);
         setFormUserPassword('');
         setFormUserAssignedGroupId(user.assignedGroupId || null);
       } else {
         setEditingUser(null);
         setFormUserName('');
-        setFormUserUsername('');
+        setFormUserEmail('');
         setFormUserPassword('');
         setFormUserRole(UserRole.PARENT);
         setFormUserAssignedGroupId(null);
@@ -104,62 +116,66 @@ const Verwaltung: React.FC = () => {
     };
 
     const handleSaveUser = async () => {
-        if (!formUserName || !formUserUsername) {
-            alert('Bitte Name und Benutzername ausfüllen.');
+        if (!formUserName || !formUserEmail) {
+            alert('Bitte Name und E-Mail ausfüllen.');
             return;
         }
 
         if (editingUser) {
-            // TODO: Implementieren Sie die Update-Funktion
-            setUsers(users.map(u => 
-                u.id === editingUser.id 
-                ? { ...u, name: formUserName, username: formUserUsername } 
-                : u
-            ));
-            handleCloseUserModal();
+            const { data, error } = await supabase
+                .from('profiles')
+                .update({ 
+                    name: formUserName,
+                    role: formUserRole,
+                    assigned_group_id: formUserRole === UserRole.GRUPPENLEITUNG ? formUserAssignedGroupId : null
+                })
+                .eq('id', editingUser.id);
+
+            if (error) {
+                alert('Fehler beim Aktualisieren des Benutzers: ' + error.message);
+            } else {
+                await loadData();
+                handleCloseUserModal();
+            }
         } else {
             if (!formUserPassword) {
                 alert('Bitte ein initiales Passwort festlegen.');
                 return;
             }
-
-            // Validate Gruppenleitung has assignedGroupId
             if (formUserRole === UserRole.GRUPPENLEITUNG && !formUserAssignedGroupId) {
                 alert('Bitte wählen Sie eine Gruppe für die Gruppenleitung aus.');
                 return;
             }
 
-            try {
-                setError(null);
-                
-                // Benutzer über API erstellen
-                const response = await authAPI.register({
-                    username: formUserUsername,
-                    password: formUserPassword,
-                    name: formUserName,
-                    role: formUserRole,
-                    assignedGroupId: formUserAssignedGroupId
-                });
+            const { data, error } = await supabase.auth.signUp({
+                email: formUserEmail,
+                password: formUserPassword,
+                options: {
+                    data: {
+                        name: formUserName,
+                    }
+                }
+            });
 
-                // Benutzer zur Liste hinzufügen
-                const newUser: User = {
-                    id: response.user.id,
-                    name: response.user.name,
-                    username: response.user.username,
-                    password: '', // Passwort nicht im Frontend speichern
-                    role: response.user.role as UserRole,
-                    children: [],
-                    avatarUrl: response.user.avatarUrl || `https://i.pravatar.cc/150?u=${formUserUsername}`
-                };
+            if (error) {
+                alert('Fehler beim Erstellen des Benutzers: ' + error.message);
+            } else if (data.user) {
+                // Now update the profile with role and assigned group
+                const { error: profileError } = await supabase
+                    .from('profiles')
+                    .update({
+                        role: formUserRole,
+                        assigned_group_id: formUserRole === UserRole.GRUPPENLEITUNG ? formUserAssignedGroupId : null
+                    })
+                    .eq('id', data.user.id);
                 
-                setUsers([...users, newUser]);
+                if (profileError) {
+                    alert('Benutzer erstellt, aber Rolle konnte nicht gesetzt werden: ' + profileError.message);
+                } else {
+                    alert(`Benutzer ${formUserName} erfolgreich erstellt!`);
+                }
+                await loadData();
                 handleCloseUserModal();
-                alert(`Benutzer ${formUserName} erfolgreich erstellt!`);
-            } catch (err: any) {
-                console.error('Fehler beim Erstellen des Benutzers:', err);
-                const errorMessage = err.response?.data?.error || 'Fehler beim Erstellen des Benutzers';
-                alert(errorMessage);
-                setError(errorMessage);
             }
         }
     };
@@ -169,29 +185,25 @@ const Verwaltung: React.FC = () => {
             alert("Sie können sich nicht selbst löschen.");
             return;
         }
-        if (userToDelete.children && userToDelete.children.length > 0) {
-             if (!window.confirm("Dieser Benutzer hat zugeordnete Kinder. Sind Sie sicher, dass Sie diesen Benutzer und alle zugehörigen Kinder löschen möchten?")) {
-                return;
-             }
-        } else {
-            if (!window.confirm("Sind Sie sicher, dass Sie diesen Benutzer löschen möchten?")) {
-                return;
-            }
+        if (!window.confirm(`Sind Sie sicher, dass Sie den Benutzer ${userToDelete.name} löschen möchten? Dies kann nicht rückgängig gemacht werden.`)) {
+            return;
         }
         
-        try {
-            await usersAPI.delete(userToDelete.id);
+        const { error } = await supabase.functions.invoke('delete-user', {
+            body: { user_id: userToDelete.id },
+        });
+
+        if (error) {
+            alert('Fehler beim Löschen des Benutzers: ' + error.message);
+        } else {
             setUsers(users.filter(u => u.id !== userToDelete.id));
             alert(`Benutzer ${userToDelete.name} erfolgreich gelöscht!`);
-        } catch (err: any) {
-            console.error('Fehler beim Löschen des Benutzers:', err);
-            const errorMessage = err.response?.data?.error || 'Fehler beim Löschen des Benutzers';
-            alert(errorMessage);
         }
     };
 
     const handleOpenChildModal = (user: User) => {
         setSelectedUser(user);
+        setNewChildGroupId(groups[0]?.id);
         setChildModalOpen(true);
     };
 
@@ -199,184 +211,99 @@ const Verwaltung: React.FC = () => {
         setSelectedGroup(group);
         setGroupEditModalOpen(true);
     }
-    
-    const handleOpenPasswordModal = (user: User) => {
-        setUserForPasswordReset(user);
-        setPasswordModalOpen(true);
-    };
-
-    const handleClosePasswordModal = () => {
-        setPasswordModalOpen(false);
-        setUserForPasswordReset(null);
-        setNewPassword('');
-        setConfirmPassword('');
-    };
-    
-    const handleResetPassword = () => {
-        if (!newPassword || !confirmPassword) {
-            alert('Bitte füllen Sie beide Passwortfelder aus.');
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            alert('Die Passwörter stimmen nicht überein.');
-            return;
-        }
-        if (!userForPasswordReset) return;
-
-        setUsers(users.map(u =>
-            u.id === userForPasswordReset.id
-            ? { ...u, password: newPassword }
-            : u
-        ));
-        
-        alert(`Das Passwort für ${userForPasswordReset.name} wurde erfolgreich zurückgesetzt.`);
-        handleClosePasswordModal();
-    };
-
 
     const handleAddChild = async () => {
-        if (!newChildName || !selectedUser) {
-            alert('Bitte Namen des Kindes angeben.');
+        if (!newChildName || !selectedUser || !newChildGroupId) {
+            alert('Bitte Namen des Kindes und Gruppe angeben.');
             return;
         }
 
-        try {
-            setError(null);
-            
-            // Kind in der Datenbank erstellen
-            const newChild = await childrenAPI.create({
-                name: newChildName,
-                parentId: selectedUser.id,
-                groupId: newChildGroupId,
-            });
+        const { error } = await supabase.from('children').insert({
+            name: newChildName,
+            parent_id: selectedUser.id,
+            group_id: newChildGroupId,
+        });
 
-            // Lokalen State aktualisieren
-            setUsers(users.map(u => 
-                u.id === selectedUser.id 
-                ? { ...u, children: [...(u.children || []), newChild] } 
-                : u
-            ));
-
+        if (error) {
+            alert('Fehler beim Hinzufügen des Kindes: ' + error.message);
+        } else {
+            await loadData();
             setChildModalOpen(false);
             setNewChildName('');
-            setNewChildGroupId(groups[0]?.id || 1);
             setSelectedUser(null);
-            
             alert(`Kind ${newChildName} wurde erfolgreich hinzugefügt!`);
-        } catch (err: any) {
-            console.error('Fehler beim Hinzufügen des Kindes:', err);
-            const errorMessage = err.response?.data?.error || 'Fehler beim Hinzufügen des Kindes';
-            alert(errorMessage);
-            setError(errorMessage);
         }
     };
 
-    const handleRemoveChildFromUser = async (userId: number, childId: number) => {
+    const handleRemoveChildFromUser = async (childId: number) => {
         if (window.confirm("Sind Sie sicher, dass Sie dieses Kind löschen möchten? Dies kann nicht rückgängig gemacht werden.")) {
-            try {
-                setError(null);
-                
-                // Kind aus der Datenbank löschen
-                await childrenAPI.delete(childId);
-                
-                // Lokalen State aktualisieren
-                setUsers(currentUsers =>
-                    currentUsers.map(user => {
-                        if (user.id === userId) {
-                            return {
-                                ...user,
-                                children: user.children.filter(child => child.id !== childId)
-                            };
-                        }
-                        return user;
-                    })
-                );
-                
+            const { error } = await supabase.from('children').delete().eq('id', childId);
+            if (error) {
+                alert('Fehler beim Löschen des Kindes: ' + error.message);
+            } else {
+                await loadData();
                 alert('Kind wurde erfolgreich gelöscht!');
-            } catch (err: any) {
-                console.error('Fehler beim Löschen des Kindes:', err);
-                const errorMessage = err.response?.data?.error || 'Fehler beim Löschen des Kindes';
-                alert(errorMessage);
-                setError(errorMessage);
             }
         }
     };
 
-    const handleCreateGroup = () => {
+    const handleCreateGroup = async () => {
         if (!newGroupName) {
             alert('Bitte einen Gruppennamen eingeben.');
             return;
         }
-        const newGroup: Group = {
-            id: Date.now(),
-            name: newGroupName,
-        };
-        setGroups([...groups, newGroup]);
-        setGroupModalOpen(false);
-        setNewGroupName('');
+        const { error } = await supabase.from('groups').insert({ name: newGroupName });
+        if (error) {
+            alert('Fehler beim Erstellen der Gruppe: ' + error.message);
+        } else {
+            await loadData();
+            setGroupModalOpen(false);
+            setNewGroupName('');
+        }
     };
 
-    const handleDeleteGroup = (groupId: number) => {
+    const handleDeleteGroup = async (groupId: number) => {
         const isGroupInUse = users.some(user => user.children?.some(child => child.groupId === groupId));
         if (isGroupInUse) {
             alert('Diese Gruppe kann nicht gelöscht werden, da ihr noch Kinder zugewiesen sind.');
             return;
         }
         if (window.confirm('Sind Sie sicher, dass Sie diese Gruppe löschen möchten?')) {
-            setGroups(groups.filter(g => g.id !== groupId));
+            const { error } = await supabase.from('groups').delete().eq('id', groupId);
+            if (error) {
+                alert('Fehler beim Löschen der Gruppe: ' + error.message);
+            } else {
+                await loadData();
+            }
         }
     }
 
     const handleAddChildToGroup = async () => {
         if (!childToAddId || !selectedGroup) return;
         
-        try {
-            setError(null);
-            
-            // Kind in der Datenbank aktualisieren
-            await childrenAPI.update(Number(childToAddId), {
-                groupId: selectedGroup.id
-            });
-            
-            // Lokalen State aktualisieren
-            const updatedUsers = users.map(user => ({
-                ...user,
-                children: user.children?.map(child =>
-                    child.id === Number(childToAddId) ? { ...child, groupId: selectedGroup.id } : child
-                )
-            }));
-            setUsers(updatedUsers);
+        const { error } = await supabase
+            .from('children')
+            .update({ group_id: selectedGroup.id })
+            .eq('id', Number(childToAddId));
+
+        if (error) {
+            alert('Fehler beim Zuweisen des Kindes: ' + error.message);
+        } else {
+            await loadData();
             setChildToAddId('');
-        } catch (err: any) {
-            console.error('Fehler beim Zuweisen des Kindes zur Gruppe:', err);
-            const errorMessage = err.response?.data?.error || 'Fehler beim Zuweisen des Kindes';
-            alert(errorMessage);
-            setError(errorMessage);
         }
     };
     
     const handleRemoveChildFromGroup = async (childId: number) => {
-        try {
-            setError(null);
-            
-            // Kind in der Datenbank aktualisieren (Gruppe entfernen)
-            await childrenAPI.update(childId, {
-                groupId: 0
-            });
-            
-            // Lokalen State aktualisieren
-            const updatedUsers = users.map(user => ({
-                ...user,
-                children: user.children?.map(child => 
-                    child.id === childId ? { ...child, groupId: 0 } : child
-                )
-            }));
-            setUsers(updatedUsers);
-        } catch (err: any) {
-            console.error('Fehler beim Entfernen des Kindes aus der Gruppe:', err);
-            const errorMessage = err.response?.data?.error || 'Fehler beim Entfernen des Kindes';
-            alert(errorMessage);
-            setError(errorMessage);
+        const { error } = await supabase
+            .from('children')
+            .update({ group_id: null })
+            .eq('id', childId);
+        
+        if (error) {
+            alert('Fehler beim Entfernen des Kindes aus der Gruppe: ' + error.message);
+        } else {
+            await loadData();
         }
     };
 
@@ -384,113 +311,91 @@ const Verwaltung: React.FC = () => {
     const childrenInSelectedGroup = allChildren.filter(c => c.groupId === selectedGroup?.id);
     const availableChildren = allChildren.filter(c => c.groupId !== selectedGroup?.id);
 
+    if (isLoading) {
+        return (
+            <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+                <p className="text-gray-500">Lade Verwaltung...</p>
+            </div>
+        );
+    }
+
+    if (error) {
+        return <div className="p-4 bg-red-100 text-red-700 rounded">{error}</div>;
+    }
 
     return (
         <div>
-            {error && (
-                <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                    {error}
-                </div>
-            )}
-
             {/* User Management Section */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">Benutzerverwaltung</h1>
                 <Button onClick={() => handleOpenUserModal(null)}>+ Neuer Benutzer</Button>
             </div>
             
-            {isLoadingUsers ? (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-                    <p className="text-gray-500">Lade Benutzer...</p>
-                </div>
-            ) : (
-                <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Benutzername</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rolle</th>
-                                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kinder</th>
-                                    <th scope="col" className="relative px-6 py-3"><span className="sr-only">Aktionen</span></th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {users.map(user => (
-                                <tr key={user.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.username}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                            user.role === UserRole.ADMIN ? 'bg-purple-100 text-purple-800' : 
-                                            user.role === UserRole.GRUPPENLEITUNG ? 'bg-blue-100 text-blue-800' : 
-                                            'bg-green-100 text-green-800'
-                                        }`}>
-                                            {user.role === UserRole.ADMIN ? 'Admin' : 
-                                             user.role === UserRole.GRUPPENLEITUNG ? 'Gruppenleitung' : 
-                                             'Eltern'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {user.children && user.children.length > 0 ? (
-                                            <ul className="space-y-1">
-                                                {user.children.map(child => (
-                                                    <li key={child.id} className="flex items-center justify-between">
-                                                        <span>{child.name} ({getGroupName(child.groupId)})</span>
-                                                        <button onClick={() => handleRemoveChildFromUser(user.id, child.id)} className="text-red-500 hover:text-red-700 ml-2" title="Kind entfernen">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                                            </svg>
-                                                        </button>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
-                                        {user.role === UserRole.PARENT && (
-                                            <button onClick={() => handleOpenChildModal(user)} className="text-cyan-600 hover:text-cyan-900">
-                                                + Kind
-                                            </button>
-                                        )}
-                                        <button 
-                                            onClick={async () => {
-                                                try {
-                                                    await usersAPI.exportData(user.id);
-                                                } catch (error) {
-                                                    console.error('Fehler beim Datenexport:', error);
-                                                    alert('Fehler beim Datenexport. Bitte versuchen Sie es erneut.');
-                                                }
-                                            }} 
-                                            className="text-blue-600 hover:text-blue-900"
-                                            title="Daten exportieren"
-                                        >
-                                            Export
-                                        </button>
-                                         {currentUser?.id !== user.id && (
-                                            <>
-                                                <button onClick={() => handleOpenUserModal(user)} className="text-indigo-600 hover:text-indigo-900">
-                                                    Bearbeiten
-                                                </button>
-                                                {user.role === UserRole.PARENT && (
-                                                    <button onClick={() => handleOpenPasswordModal(user)} className="text-amber-600 hover:text-amber-900">
-                                                        Passwort
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">E-Mail</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rolle</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kinder</th>
+                                <th scope="col" className="relative px-6 py-3"><span className="sr-only">Aktionen</span></th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {users.map(user => (
+                            <tr key={user.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.username}</td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        user.role === UserRole.ADMIN ? 'bg-purple-100 text-purple-800' : 
+                                        user.role === UserRole.GRUPPENLEITUNG ? 'bg-blue-100 text-blue-800' : 
+                                        'bg-green-100 text-green-800'
+                                    }`}>
+                                        {user.role}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {user.children && user.children.length > 0 ? (
+                                        <ul className="space-y-1">
+                                            {user.children.map(child => (
+                                                <li key={child.id} className="flex items-center justify-between">
+                                                    <span>{child.name} ({getGroupName(child.groupId)})</span>
+                                                    <button onClick={() => handleRemoveChildFromUser(child.id)} className="text-red-500 hover:text-red-700 ml-2" title="Kind entfernen">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                                        </svg>
                                                     </button>
-                                                )}
-                                                <button onClick={() => handleDeleteUser(user)} className="text-red-600 hover:text-red-900">
-                                                    Löschen
-                                                </button>
-                                            </>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : '-'}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
+                                    {user.role === UserRole.PARENT && (
+                                        <button onClick={() => handleOpenChildModal(user)} className="text-cyan-600 hover:text-cyan-900">
+                                            + Kind
+                                        </button>
+                                    )}
+                                     {currentUser?.id !== user.id && (
+                                        <>
+                                            <button onClick={() => handleOpenUserModal(user)} className="text-indigo-600 hover:text-indigo-900">
+                                                Bearbeiten
+                                            </button>
+                                            <button onClick={() => handleDeleteUser(user)} className="text-red-600 hover:text-red-900">
+                                                Löschen
+                                            </button>
+                                        </>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-            )}
+        </div>
 
             {/* Group Management Section */}
             <div className="flex justify-between items-center mt-12 mb-6">
@@ -537,44 +442,41 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isUserModalOpen} onClose={handleCloseUserModal} title={editingUser ? 'Benutzer bearbeiten' : 'Neuen Benutzer erstellen'}>
                 <div className="space-y-4">
                     <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">Name</label>
-                        <input type="text" id="name" value={formUserName} onChange={e => setFormUserName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700">Name</label>
+                        <input type="text" value={formUserName} onChange={e => setFormUserName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
                     </div>
                     <div>
-                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">Benutzername</label>
-                        <input type="text" id="username" value={formUserUsername} onChange={e => setFormUserUsername(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700">E-Mail</label>
+                        <input type="email" value={formUserEmail} onChange={e => setFormUserEmail(e.target.value)} disabled={!!editingUser} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 disabled:bg-gray-100"/>
                     </div>
-                    {!editingUser && (
-                      <>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Rolle</label>
+                        <select value={formUserRole} onChange={e => setFormUserRole(e.target.value as UserRole)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
+                            <option value={UserRole.PARENT}>Eltern</option>
+                            <option value={UserRole.ADMIN}>Admin</option>
+                            <option value={UserRole.GRUPPENLEITUNG}>Gruppenleitung</option>
+                        </select>
+                    </div>
+                    {formUserRole === UserRole.GRUPPENLEITUNG && (
                         <div>
-                            <label htmlFor="role" className="block text-sm font-medium text-gray-700">Rolle</label>
-                            <select id="role" value={formUserRole} onChange={e => setFormUserRole(e.target.value as UserRole)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
-                                <option value={UserRole.PARENT}>Eltern</option>
-                                <option value={UserRole.ADMIN}>Admin</option>
-                                <option value={UserRole.GRUPPENLEITUNG}>Gruppenleitung</option>
+                            <label className="block text-sm font-medium text-gray-700">Zugewiesene Gruppe</label>
+                            <select 
+                                value={formUserAssignedGroupId || ''} 
+                                onChange={e => setFormUserAssignedGroupId(e.target.value ? parseInt(e.target.value) : null)} 
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                            >
+                                <option value="">Bitte Gruppe auswählen</option>
+                                {groups.map(group => (
+                                    <option key={group.id} value={group.id}>{group.name}</option>
+                                ))}
                             </select>
                         </div>
-                        {formUserRole === UserRole.GRUPPENLEITUNG && (
-                            <div>
-                                <label htmlFor="assignedGroup" className="block text-sm font-medium text-gray-700">Zugewiesene Gruppe</label>
-                                <select 
-                                    id="assignedGroup" 
-                                    value={formUserAssignedGroupId || ''} 
-                                    onChange={e => setFormUserAssignedGroupId(e.target.value ? parseInt(e.target.value) : null)} 
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
-                                >
-                                    <option value="">Bitte Gruppe auswählen</option>
-                                    {groups.map(group => (
-                                        <option key={group.id} value={group.id}>{group.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                    )}
+                    {!editingUser && (
                         <div>
-                            <label htmlFor="password"  className="block text-sm font-medium text-gray-700">Initiales Passwort</label>
-                            <input type="password" id="password" value={formUserPassword} onChange={e => setFormUserPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                            <label className="block text-sm font-medium text-gray-700">Initiales Passwort</label>
+                            <input type="password" value={formUserPassword} onChange={e => setFormUserPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
                         </div>
-                      </>
                     )}
                     <div className="flex justify-end pt-4">
                         <Button onClick={handleSaveUser}>{editingUser ? 'Änderungen speichern' : 'Benutzer erstellen'}</Button>
@@ -586,12 +488,12 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isChildModalOpen} onClose={() => setChildModalOpen(false)} title={`Kind für ${selectedUser?.name} hinzufügen`}>
                  <div className="space-y-4">
                     <div>
-                        <label htmlFor="childName" className="block text-sm font-medium text-gray-700">Name des Kindes</label>
-                        <input type="text" id="childName" value={newChildName} onChange={e => setNewChildName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700">Name des Kindes</label>
+                        <input type="text" value={newChildName} onChange={e => setNewChildName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
                     </div>
                     <div>
-                        <label htmlFor="childGroup" className="block text-sm font-medium text-gray-700">Gruppe</label>
-                        <select id="childGroup" value={newChildGroupId} onChange={e => setNewChildGroupId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
+                        <label className="block text-sm font-medium text-gray-700">Gruppe</label>
+                        <select value={newChildGroupId} onChange={e => setNewChildGroupId(Number(e.target.value))} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500">
                             {groups.map(group => (
                                 <option key={group.id} value={group.id}>{group.name}</option>
                             ))}
@@ -607,8 +509,8 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isGroupModalOpen} onClose={() => setGroupModalOpen(false)} title="Neue Gruppe erstellen">
                  <div className="space-y-4">
                     <div>
-                        <label htmlFor="groupName" className="block text-sm font-medium text-gray-700">Name der Gruppe</label>
-                        <input type="text" id="groupName" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
+                        <label className="block text-sm font-medium text-gray-700">Name der Gruppe</label>
+                        <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
                     </div>
                     <div className="flex justify-end pt-4">
                         <Button onClick={handleCreateGroup}>Gruppe erstellen</Button>
@@ -619,7 +521,6 @@ const Verwaltung: React.FC = () => {
              {/* Modal for editing a group */}
             <Modal isOpen={isGroupEditModalOpen} onClose={() => setGroupEditModalOpen(false)} title={`Gruppe "${selectedGroup?.name}" bearbeiten`}>
                 <div className="space-y-6">
-                    {/* Section to remove children */}
                     <div>
                         <h4 className="font-semibold text-gray-800">Kinder in dieser Gruppe</h4>
                         {childrenInSelectedGroup.length > 0 ? (
@@ -636,7 +537,6 @@ const Verwaltung: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Section to add children */}
                     <div className="border-t pt-4">
                         <h4 className="font-semibold text-gray-800">Kind hinzufügen</h4>
                         {availableChildren.length > 0 ? (
@@ -659,23 +559,6 @@ const Verwaltung: React.FC = () => {
                     </div>
                     <div className="flex justify-end pt-4">
                        <Button onClick={() => setGroupEditModalOpen(false)} variant="secondary">Schließen</Button>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* Modal for resetting a password */}
-            <Modal isOpen={isPasswordModalOpen} onClose={handleClosePasswordModal} title={`Passwort für ${userForPasswordReset?.name} zurücksetzen`}>
-                <div className="space-y-4">
-                    <div>
-                        <label htmlFor="newPassword"  className="block text-sm font-medium text-gray-700">Neues Passwort</label>
-                        <input type="password" id="newPassword" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
-                    </div>
-                    <div>
-                        <label htmlFor="confirmPassword"  className="block text-sm font-medium text-gray-700">Passwort bestätigen</label>
-                        <input type="password" id="confirmPassword" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"/>
-                    </div>
-                    <div className="flex justify-end pt-4">
-                        <Button onClick={handleResetPassword}>Passwort speichern</Button>
                     </div>
                 </div>
             </Modal>
