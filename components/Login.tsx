@@ -25,11 +25,11 @@ const Login: React.FC<LoginProps> = ({ error }) => {
     { emoji: '🌟', animation: 'twinkle', top: '40%', left: '5%', delay: '0.8s', size: '2rem' },
     { emoji: '🌈', animation: 'float', top: '85%', left: '50%', delay: '0.2s', size: '3.5rem' },
     { emoji: '☀️', animation: 'pulse', top: '5%', left: '5%', delay: '1.2s', size: '3.2rem' },
-    { emoji: '🦄', animation: 'bounce', top: '45%', left: '60%', delay: '2.5s', size: '2.5rem' },
+    { emoji: '🦄', animation: 'bounce', top: '45%', left: '60%', delay: '2.5rem' },
   ];
 
   return (
-    <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200 overflow-hidden">
+    <div className="relative flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200 dark:from-gray-900 dark:to-slate-800 overflow-hidden">
       <style>{`
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } }
