@@ -14,13 +14,10 @@
         document.documentElement.classList.remove('dark');
       }
     </script>
-    <script>
-      // Set Tailwind dark mode to 'class'
-      window.tailwind = {
-        config: {
-          darkMode: 'class',
-        },
-      };
+    <script type="text/tailwindcss-config">
+      tailwind.config = {
+        darkMode: 'class',
+      }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
