@@ -20,7 +20,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const root = window.document.documentElement;
     
-    // This is now the single source of truth for the theme class.
     if (theme === 'dark') {
       root.classList.add('dark');
     } else {
