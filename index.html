@@ -6,20 +6,15 @@
     <title>Kinderhaus St. Wolfgang Elternportal</title>
     <meta name="theme-color" content="#0891b2">
     <link rel="apple-touch-icon" href="/logo.png">
+    
+    <!-- The configuration is now a standard script tag for better compatibility -->
     <script>
-      // Anti-flicker script to apply theme before page renders
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    </script>
-    <script type="text/tailwindcss-config">
       tailwind.config = {
         darkMode: 'class',
       }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
