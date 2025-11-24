@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import Login from './components/Login';
 import Layout from './components/Layout';
 import { ThemeProvider } from './hooks/useTheme';
+import PwaUpdater from './components/PwaUpdater';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -192,6 +193,7 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider>
+      <PwaUpdater />
       {!currentUser ? (
         <Login error={profileError} />
       ) : (
