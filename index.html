@@ -25,21 +25,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     
     <script>
-      // Register Service Worker
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then((registration) => {
-              console.log('Service Worker registered successfully:', registration.scope);
-            })
-            .catch((error) => {
-              console.log('Service Worker registration failed:', error);
-            });
-        });
-      }
-    </script>
-    
-    <script>
       // Anti-flicker script to apply theme before page renders
       const savedTheme = localStorage.getItem('theme');
       const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

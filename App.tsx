@@ -6,7 +6,6 @@ import type { Session } from '@supabase/supabase-js';
 import Login from './components/Login';
 import Layout from './components/Layout';
 import { ThemeProvider } from './hooks/useTheme';
-import PwaUpdater from './components/PwaUpdater';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -38,16 +37,14 @@ const App: React.FC = () => {
     const setupUser = async () => {
       if (session?.user) {
         setIsLoading(true);
-        setProfileError(null); // Clear previous errors
+        setProfileError(null);
         try {
-          // Fetch profile
           let { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('username, name, role, avatar_url, assigned_group_id')
             .eq('id', session.user.id)
             .single();
 
-          // Self-healing: if profile doesn't exist, create it.
           if (profileError && profileError.code === 'PGRST116') {
             console.warn('Profile not found for user, creating one...');
             const { data: newProfile, error: insertError } = await supabase
@@ -73,7 +70,6 @@ const App: React.FC = () => {
             throw new Error('User profile could not be loaded or created.');
           }
 
-          // Fetch children for the user
           const { data: childrenData, error: childrenError } = await supabase
             .from('children')
             .select('*')
@@ -104,7 +100,6 @@ const App: React.FC = () => {
           }
         } catch (error: any) {
           console.error('Full profile setup error:', error);
-          // DO NOT SIGN OUT. Instead, set the error to be displayed.
           setProfileError(error.message || 'Ein unbekannter Fehler ist aufgetreten.');
         } finally {
           setIsLoading(false);
@@ -142,7 +137,7 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setActiveChild(null);
     setNotifications([]);
-    setProfileError(null); // Clear error on logout
+    setProfileError(null);
   };
 
   const handleSetActiveChild = (child: Child) => {
@@ -193,7 +188,6 @@ const App: React.FC = () => {
 
   return (
     <ThemeProvider>
-      <PwaUpdater />
       {!currentUser ? (
         <Login error={profileError} />
       ) : (
