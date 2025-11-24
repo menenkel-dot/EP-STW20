@@ -30,6 +30,8 @@ export default defineConfig(() => {
             display: 'standalone',
             scope: '/',
             start_url: '/',
+            id: '/',
+            lang: 'de',
             icons: [
               {
                 src: '/logo.png',
@@ -53,6 +55,41 @@ export default defineConfig(() => {
             globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
             skipWaiting: true,
             clientsClaim: true,
+            runtimeCaching: [
+              {
+                urlPattern: ({ request }) => request.destination === 'script' || request.destination === 'style',
+                handler: 'NetworkFirst',
+                options: {
+                  cacheName: 'static-resources',
+                  expiration: {
+                    maxEntries: 60,
+                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+                  },
+                },
+              },
+              {
+                urlPattern: ({ request }) => request.destination === 'image',
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'images',
+                  expiration: {
+                    maxEntries: 60,
+                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+                  },
+                },
+              },
+              {
+                urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'google-fonts',
+                  expiration: {
+                    maxEntries: 10,
+                    maxAgeSeconds: 365 * 24 * 60 * 60, // 1 Year
+                  },
+                },
+              },
+            ],
           },
           devOptions: {
             enabled: true,
