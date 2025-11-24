@@ -1,19 +1,28 @@
 <!DOCTYPE html>
-<html lang="de" class="dark">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Kinderhaus St. Wolfgang Elternportal</title>
     
-    <!-- PWA & Mobile Meta Tags -->
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials" />
+    
+    <!-- Favicon -->
     <link rel="icon" href="/logo.png" type="image/png" />
-    <meta name="description" content="Elternportal für das Kinderhaus St. Wolfgang">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Elternportal für das Kinderhaus St. Wolfgang - Neuigkeiten, Veranstaltungen und Kommunikation">
     <meta name="theme-color" content="#0891b2">
+    
+    <!-- iOS Specific -->
     <link rel="apple-touch-icon" href="/logo.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Elternportal">
+    
+    <!-- Android Specific -->
+    <meta name="mobile-web-app-capable" content="yes">
     
     <script>
       // Anti-flicker script to apply theme before page renders

@@ -9,10 +9,12 @@ export default defineConfig(() => {
         port: 5000,
         host: '0.0.0.0',
         strictPort: true,
-        proxy: {
-          '/api': {
-            target: 'http://localhost:3000',
-            changeOrigin: true,
+      },
+      build: {
+        sourcemap: false,
+        rollupOptions: {
+          output: {
+            manualChunks: undefined,
           },
         },
       },
@@ -21,49 +23,48 @@ export default defineConfig(() => {
         VitePWA({
           registerType: 'autoUpdate',
           includeAssets: ['logo.png'],
-          manifest: {
-            name: 'Kinderhaus St. Wolfgang',
-            short_name: 'Elternportal',
-            description: 'Elternportal für das Kinderhaus St. Wolfgang',
-            theme_color: '#0891b2',
-            background_color: '#f3f4f6',
-            display: 'standalone',
-            scope: '/',
-            start_url: '/',
-            id: '/',
-            lang: 'de',
-            icons: [
-              {
-                src: '/logo.png',
-                sizes: '192x192',
-                type: 'image/png'
-              },
-              {
-                src: '/logo.png',
-                sizes: '512x512',
-                type: 'image/png'
-              },
-              {
-                src: '/logo.png',
-                sizes: '512x512',
-                type: 'image/png',
-                purpose: 'any maskable'
-              }
-            ]
-          },
           workbox: {
-            globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+            globPatterns: ['**/*.{js,css,html,png,svg,ico,woff,woff2}'],
+            cleanupOutdatedCaches: true,
             skipWaiting: true,
             clientsClaim: true,
             runtimeCaching: [
               {
-                urlPattern: ({ request }) => request.destination === 'script' || request.destination === 'style',
-                handler: 'NetworkFirst',
+                urlPattern: /^https:\/\/cdn\.tailwindcss\.com\/.*/i,
+                handler: 'CacheFirst',
                 options: {
-                  cacheName: 'static-resources',
+                  cacheName: 'tailwind-cdn',
                   expiration: {
-                    maxEntries: 60,
-                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+                    maxEntries: 10,
+                    maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200],
+                  },
+                },
+              },
+              {
+                urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'google-fonts-stylesheets',
+                  expiration: {
+                    maxEntries: 10,
+                    maxAgeSeconds: 60 * 60 * 24 * 365,
+                  },
+                },
+              },
+              {
+                urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'google-fonts-webfonts',
+                  expiration: {
+                    maxEntries: 30,
+                    maxAgeSeconds: 60 * 60 * 24 * 365,
+                  },
+                  cacheableResponse: {
+                    statuses: [0, 200],
                   },
                 },
               },
@@ -74,25 +75,49 @@ export default defineConfig(() => {
                   cacheName: 'images',
                   expiration: {
                     maxEntries: 60,
-                    maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-                  },
-                },
-              },
-              {
-                urlPattern: ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
-                handler: 'CacheFirst',
-                options: {
-                  cacheName: 'google-fonts',
-                  expiration: {
-                    maxEntries: 10,
-                    maxAgeSeconds: 365 * 24 * 60 * 60, // 1 Year
+                    maxAgeSeconds: 30 * 24 * 60 * 60,
                   },
                 },
               },
             ],
           },
+          manifest: {
+            name: 'Kinderhaus St. Wolfgang Elternportal',
+            short_name: 'Elternportal',
+            description: 'Elternportal für das Kinderhaus St. Wolfgang',
+            theme_color: '#0891b2',
+            background_color: '#ffffff',
+            display: 'standalone',
+            scope: '/',
+            start_url: '/',
+            id: '/',
+            orientation: 'portrait-primary',
+            lang: 'de',
+            icons: [
+              {
+                src: '/logo.png',
+                sizes: '192x192',
+                type: 'image/png',
+                purpose: 'any'
+              },
+              {
+                src: '/logo.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'any'
+              },
+              {
+                src: '/logo.png',
+                sizes: '512x512',
+                type: 'image/png',
+                purpose: 'maskable'
+              }
+            ],
+            categories: ['education', 'lifestyle']
+          },
           devOptions: {
             enabled: true,
+            type: 'module',
           }
         })
       ],
