@@ -29,6 +29,9 @@ const App: React.FC = () => {
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (!session) {
+        setIsLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -37,7 +40,10 @@ const App: React.FC = () => {
   useEffect(() => {
     const setupUser = async () => {
       if (session?.user) {
-        setIsLoading(true);
+        // Nur laden, wenn wir noch keinen User haben, um Resets zu vermeiden
+        const isInitialLoad = !currentUser;
+        if (isInitialLoad) setIsLoading(true);
+        
         setProfileError(null);
         try {
           let { data: profile, error: profileError } = await supabase
@@ -47,7 +53,6 @@ const App: React.FC = () => {
             .single();
 
           if (profileError && profileError.code === 'PGRST116') {
-            console.warn('Profile not found for user, creating one...');
             const { data: newProfile, error: insertError } = await supabase
               .from('profiles')
               .insert({
@@ -58,10 +63,7 @@ const App: React.FC = () => {
               .select('username, name, role, avatar_url, assigned_group_id')
               .single();
 
-            if (insertError) {
-              console.error('Error creating profile:', insertError.message);
-              throw insertError;
-            }
+            if (insertError) throw insertError;
             profile = newProfile;
           } else if (profileError) {
             throw profileError;
@@ -96,14 +98,15 @@ const App: React.FC = () => {
           };
 
           setCurrentUser(user);
-          if (children.length > 0) {
+          // Setze aktives Kind nur, wenn noch keines ausgewählt ist
+          if (children.length > 0 && !activeChild) {
             setActiveChild(children[0]);
           }
         } catch (error: any) {
           console.error('Full profile setup error:', error);
           setProfileError(error.message || 'Ein unbekannter Fehler ist aufgetreten.');
         } finally {
-          setIsLoading(false);
+          if (isInitialLoad) setIsLoading(false);
         }
       }
     };
@@ -176,7 +179,8 @@ const App: React.FC = () => {
     setActiveChild: handleSetActiveChild,
   }), [currentUser, activeChild]);
 
-  if (isLoading && !profileError) {
+  // Nur während des initialen Ladens den Spinner zeigen
+  if (isLoading && !currentUser && !profileError) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-teal-100 to-cyan-200">
         <div className="text-center">
