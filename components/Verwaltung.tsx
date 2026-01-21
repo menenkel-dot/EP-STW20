@@ -94,6 +94,15 @@ const Verwaltung: React.FC = () => {
         return groups.find(g => g.id === groupId)?.name || 'N/A';
     };
 
+    const getRoleLabel = (role: string) => {
+        switch (role) {
+            case UserRole.ADMIN: return 'Administrator';
+            case UserRole.PARENT: return 'Eltern';
+            case UserRole.GRUPPENLEITUNG: return 'Gruppenleitung';
+            default: return role;
+        }
+    };
+
     const handleOpenUserModal = (user: User | null) => {
       if (user) {
         setEditingUser(user);
@@ -158,7 +167,7 @@ const Verwaltung: React.FC = () => {
         }
 
         if (editingUser) {
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('profiles')
                 .update({ 
                     name: formUserName,
@@ -372,8 +381,8 @@ const Verwaltung: React.FC = () => {
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead className="bg-gray-50 dark:bg-gray-700">
                             <tr>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">E-Mail</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Anzeigename</th>
+                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">E-Mail / Login</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rolle</th>
                                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Kinder</th>
                                 <th scope="col" className="relative px-6 py-3"><span className="sr-only">Aktionen</span></th>
@@ -390,7 +399,7 @@ const Verwaltung: React.FC = () => {
                                         user.role === UserRole.GRUPPENLEITUNG ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' : 
                                         'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                     }`}>
-                                        {user.role}
+                                        {getRoleLabel(user.role)}
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -481,8 +490,8 @@ const Verwaltung: React.FC = () => {
             <Modal isOpen={isUserModalOpen} onClose={handleCloseUserModal} title={editingUser ? 'Benutzer bearbeiten' : 'Neuen Benutzer erstellen'}>
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
-                        <input type="text" value={formUserName} onChange={e => setFormUserName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Anzeigename</label>
+                        <input type="text" value={formUserName} onChange={e => setFormUserName(e.target.value)} placeholder="z.B. Familie Meier" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"/>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">E-Mail</label>
@@ -492,7 +501,7 @@ const Verwaltung: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Rolle</label>
                         <select value={formUserRole} onChange={e => setFormUserRole(e.target.value as UserRole)} className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white">
                             <option value={UserRole.PARENT}>Eltern</option>
-                            <option value={UserRole.ADMIN}>Admin</option>
+                            <option value={UserRole.ADMIN}>Administrator</option>
                             <option value={UserRole.GRUPPENLEITUNG}>Gruppenleitung</option>
                         </select>
                     </div>

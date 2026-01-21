@@ -32,6 +32,15 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
     return name.substring(0, 2).toUpperCase();
   };
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+        case UserRole.ADMIN: return 'Administrator';
+        case UserRole.PARENT: return 'Eltern';
+        case UserRole.GRUPPENLEITUNG: return 'Gruppenleitung';
+        default: return role;
+    }
+  };
+
   return (
     <header className="flex items-center justify-between h-20 px-6 bg-white border-b-2 border-gray-200 dark:bg-gray-800 dark:border-gray-700">
       <div className="flex items-center">
@@ -92,7 +101,7 @@ const Header: React.FC<HeaderProps> = ({ notifications, markNotificationAsRead, 
             </div>
             <div className="hidden md:block text-left">
               <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">{user?.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{user?.role}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{getRoleLabel(user?.role || '')}</p>
             </div>
           </button>
           {isProfileMenuOpen && (
