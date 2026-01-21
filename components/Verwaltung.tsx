@@ -20,10 +20,13 @@ const Verwaltung: React.FC = () => {
     const [isChildModalOpen, setChildModalOpen] = useState(false);
     const [isGroupModalOpen, setGroupModalOpen] = useState(false);
     const [isGroupEditModalOpen, setGroupEditModalOpen] = useState(false);
+    const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
     
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
     const [childToAddId, setChildToAddId] = useState<string>('');
+    const [newPassword, setNewPassword] = useState('');
+    const [isSavingPassword, setIsSavingPassword] = useState(false);
 
     // Load users and groups on mount
     useEffect(() => {
@@ -113,6 +116,39 @@ const Verwaltung: React.FC = () => {
     const handleCloseUserModal = () => {
         setUserModalOpen(false);
         setEditingUser(null);
+    };
+
+    const handleOpenPasswordModal = (user: User) => {
+        setSelectedUser(user);
+        setNewPassword('');
+        setPasswordModalOpen(true);
+    };
+
+    const handleUpdatePassword = async () => {
+        if (!selectedUser || !newPassword) {
+            alert('Bitte ein Passwort eingeben.');
+            return;
+        }
+        if (newPassword.length < 6) {
+            alert('Das Passwort muss mindestens 6 Zeichen lang sein.');
+            return;
+        }
+
+        setIsSavingPassword(true);
+        try {
+            const { error } = await supabase.functions.invoke('update-password', {
+                body: { user_id: selectedUser.id, password: newPassword },
+            });
+
+            if (error) throw error;
+
+            alert(`Passwort für ${selectedUser.name} erfolgreich geändert.`);
+            setPasswordModalOpen(false);
+        } catch (err: any) {
+            alert('Fehler beim Ändern des Passworts: ' + err.message);
+        } finally {
+            setIsSavingPassword(false);
+        }
     };
 
     const handleSaveUser = async () => {
@@ -381,6 +417,9 @@ const Verwaltung: React.FC = () => {
                                     )}
                                      {currentUser?.id !== user.id && (
                                         <>
+                                            <button onClick={() => handleOpenPasswordModal(user)} className="text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200">
+                                                PW ändern
+                                            </button>
                                             <button onClick={() => handleOpenUserModal(user)} className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-200">
                                                 Bearbeiten
                                             </button>
@@ -480,6 +519,29 @@ const Verwaltung: React.FC = () => {
                     )}
                     <div className="flex justify-end pt-4">
                         <Button onClick={handleSaveUser}>{editingUser ? 'Änderungen speichern' : 'Benutzer erstellen'}</Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal for changing password */}
+            <Modal isOpen={isPasswordModalOpen} onClose={() => setPasswordModalOpen(false)} title={`Passwort für ${selectedUser?.name} ändern`}>
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Geben Sie ein neues Passwort für diesen Benutzer ein. Das Passwort muss mindestens 6 Zeichen lang sein.</p>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Neues Passwort</label>
+                        <input 
+                            type="password" 
+                            value={newPassword} 
+                            onChange={e => setNewPassword(e.target.value)} 
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            autoFocus
+                        />
+                    </div>
+                    <div className="flex justify-end pt-4 space-x-3">
+                        <Button onClick={() => setPasswordModalOpen(false)} variant="secondary">Abbrechen</Button>
+                        <Button onClick={handleUpdatePassword} disabled={isSavingPassword || !newPassword}>
+                            {isSavingPassword ? 'Wird gespeichert...' : 'Passwort setzen'}
+                        </Button>
                     </div>
                 </div>
             </Modal>
